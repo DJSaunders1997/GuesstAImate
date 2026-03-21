@@ -176,6 +176,9 @@ function editLog(id) {
   const log = getLogs().find(l => l.id === id);
   if (!log) return;
 
+  const logDate = new Date(log.timestamp);
+  const timeVal  = logDate.toTimeString().slice(0, 5); // HH:MM
+
   entry.innerHTML = `
     <div class="edit-fields">
       <input class="edit-food" value="${escapeHtml(log.food)}" />
@@ -187,6 +190,7 @@ function editLog(id) {
       <label>C <input class="edit-carbs"   type="number" min="0" step="0.1" value="${log.carbs   || 0}" />g</label>
       <label>F <input class="edit-fat"     type="number" min="0" step="0.1" value="${log.fat     || 0}" />g</label>
       <label>Fi <input class="edit-fibre"  type="number" min="0" step="0.1" value="${log.fibre   || 0}" />g</label>
+      <label class="edit-time-label">🕐 <input class="edit-time" type="time" value="${timeVal}" /></label>
     </div>
     <div class="log-right">
       <button class="save-btn" onclick="saveLog(${id})">Save</button>
@@ -205,9 +209,20 @@ function saveLog(id) {
   const carbs    = parseFloat(entry.querySelector('.edit-carbs').value)   || 0;
   const fat      = parseFloat(entry.querySelector('.edit-fat').value)     || 0;
   const fibre    = parseFloat(entry.querySelector('.edit-fibre').value)   || 0;
+  const timeStr  = entry.querySelector('.edit-time').value; // HH:MM
   if (!food || isNaN(calories) || calories < 0) return;
 
-  const logs = getLogs().map(l => l.id === id ? { ...l, food, calories, protein, carbs, fat, fibre } : l);
+  const logs = getLogs().map(l => {
+    if (l.id !== id) return l;
+    let timestamp = l.timestamp;
+    if (timeStr) {
+      const d = new Date(l.timestamp);
+      const [h, m] = timeStr.split(':').map(Number);
+      d.setHours(h, m, 0, 0);
+      timestamp = d.toISOString();
+    }
+    return { ...l, food, calories, protein, carbs, fat, fibre, timestamp };
+  });
   saveLogs(logs);
   renderLogs();
 }

@@ -252,6 +252,20 @@ header h1 .ai { color: var(--primary); }
   padding: 0.2rem 0.3rem;
   text-align: right;
 }
+
+.edit-time-label { margin-left: auto; }
+.edit-time {
+  min-width: 5.5rem;
+  width: auto;
+  text-align: left;
+  font-size: 0.78rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 0.2rem 0.3rem;
+  color-scheme: dark;
+}
 .edit-food {
   flex: 1;
   background: var(--bg);
