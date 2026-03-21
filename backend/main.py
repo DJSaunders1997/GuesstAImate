@@ -74,15 +74,16 @@ async def log_requests(request: Request, call_next):
 
 SYSTEM_PROMPT = (
     "You are a nutrition assistant. The user will describe what they ate in natural language. "
-    "Estimate the total calories for everything mentioned. Use rough but reasonable estimates - "
+    "Split the description into individual food items or meals. Each distinct item or meal gets its own entry. "
+    "Estimate calories for each item using rough but reasonable estimates - "
     "consistency matters more than precision (e.g. ~100 kcal for a slice of bread). "
-    "Also extract any time reference from the description. "
+    "Also extract any time reference for each item. "
     "If the user mentions a specific time (e.g. 'at 10am', 'at 2:30pm'), return it as HH:MM in 24-hour format. "
     "If the user mentions a meal name with no explicit time, map it: "
     "breakfast=07:30, brunch=10:00, lunch=12:30, afternoon tea=15:30, dinner=18:30, supper=19:30. "
-    "If no time is mentioned at all, return null for time. "
-    'Return ONLY a valid JSON object: {"food": "description", "calories": 500, "time": "10:00"}. '
-    "No markdown, no explanation - just the JSON object."
+    "If no time is mentioned for an item, return null for its time. "
+    'Return ONLY a valid JSON array: [{"food": "description", "calories": 300, "time": "09:00"}, {"food": "description", "calories": 400, "time": "14:00"}]. '
+    "No markdown, no explanation - just the JSON array."
 )
 
 # File-extension map for common audio MIME types from browsers
@@ -142,7 +143,7 @@ async def track(audio: UploadFile = File(...)):
                 {"role": "user", "content": transcript_text},
             ],
             temperature=0.3,
-            max_tokens=150,
+            max_tokens=400,
         )
 
         raw = completion.choices[0].message.content.strip()
@@ -150,12 +151,20 @@ async def track(audio: UploadFile = File(...)):
 
         result = json.loads(raw)
 
-        return {
-            "food": str(result["food"]),
-            "calories": int(result["calories"]),
-            "transcript": transcript_text,
-            "time_hint": result.get("time"),  # "HH:MM" or null
-        }
+        # Normalise: GPT should return an array but handle a plain object too
+        if isinstance(result, dict):
+            result = [result]
+
+        items = [
+            {
+                "food": str(item["food"]),
+                "calories": int(item["calories"]),
+                "time_hint": item.get("time"),  # "HH:MM" or null
+            }
+            for item in result
+        ]
+
+        return {"items": items, "transcript": transcript_text}
 
     except json.JSONDecodeError:
         logger.error("Failed to parse GPT JSON: %s", locals().get("raw", "<not set>"))
