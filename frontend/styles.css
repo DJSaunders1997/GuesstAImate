@@ -113,7 +113,7 @@ header h1 .ai { color: var(--primary); }
   color: var(--muted);
 }
 
-#export-btn {
+#export-btn, #add-btn {
   background: none;
   border: 1px solid var(--border);
   color: var(--muted);
@@ -123,7 +123,8 @@ header h1 .ai { color: var(--primary); }
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
 }
-#export-btn:hover { border-color: var(--primary); color: var(--primary); }
+#export-btn:hover, #add-btn:hover { border-color: var(--primary); color: var(--primary); }
+#add-btn { font-size: 1.1rem; padding: 0.15rem 0.65rem; }
 
 /* ── DAY NAVIGATION ─────────────────────────────── */
 .day-nav {
@@ -445,3 +446,19 @@ header h1 .ai { color: var(--primary); }
 .targets-actions button:hover { background: var(--primary-dark); }
 
 .macro-cal { color: #22c55e; font-weight: 600; }
+
+/* ── FOOTER ─────────────────────────────────────── */
+footer {
+  text-align: center;
+  padding: 1.25rem 1rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+footer a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+footer a:hover { color: var(--primary); }
