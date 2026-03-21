@@ -41,7 +41,7 @@ async def startup_event():
     logger.info("GuesstAImate API starting up")
     if not _api_key or _api_key.startswith("sk-your"):
         logger.warning(
-            "OPENAI_API_KEY is not set or is still the placeholder — requests will fail!"
+            "OPENAI_API_KEY is not set or is still the placeholder - requests will fail!"
         )
     else:
         logger.info("OPENAI_API_KEY loaded (%s...%s)", _api_key[:8], _api_key[-4:])
@@ -74,10 +74,15 @@ async def log_requests(request: Request, call_next):
 
 SYSTEM_PROMPT = (
     "You are a nutrition assistant. The user will describe what they ate in natural language. "
-    "Estimate the total calories for everything mentioned. Use rough but reasonable estimates — "
+    "Estimate the total calories for everything mentioned. Use rough but reasonable estimates - "
     "consistency matters more than precision (e.g. ~100 kcal for a slice of bread). "
-    'Return ONLY a valid JSON object in this exact format: {"food": "description", "calories": 500}. '
-    "No markdown, no explanation — just the JSON object."
+    "Also extract any time reference from the description. "
+    "If the user mentions a specific time (e.g. 'at 10am', 'at 2:30pm'), return it as HH:MM in 24-hour format. "
+    "If the user mentions a meal name with no explicit time, map it: "
+    "breakfast=07:30, brunch=10:00, lunch=12:30, afternoon tea=15:30, dinner=18:30, supper=19:30. "
+    "If no time is mentioned at all, return null for time. "
+    'Return ONLY a valid JSON object: {"food": "description", "calories": 500, "time": "10:00"}. '
+    "No markdown, no explanation - just the JSON object."
 )
 
 # File-extension map for common audio MIME types from browsers
@@ -149,6 +154,7 @@ async def track(audio: UploadFile = File(...)):
             "food": str(result["food"]),
             "calories": int(result["calories"]),
             "transcript": transcript_text,
+            "time_hint": result.get("time"),  # "HH:MM" or null
         }
 
     except json.JSONDecodeError:
@@ -170,7 +176,7 @@ def health():
 
 
 # ---------------------------------------------------------------------------
-# Serve the frontend — only when the ../frontend directory exists (local dev).
+# Serve the frontend - only when the ../frontend directory exists (local dev).
 # In production the frontend is on GitHub Pages; this block is a no-op there.
 # Visit http://localhost:8000 to open the app without any CORS issues.
 # ---------------------------------------------------------------------------
