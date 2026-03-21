@@ -316,11 +316,11 @@ function saveTargets() {
  * timestamps: [Date]  (same length as values arrays)
  */
 function drawCumulativeChart(canvas, timestamps, series, unit) {
-  if (!canvas || timestamps.length < 2) { canvas.style.display = 'none'; return; }
+  if (!canvas) return;
   canvas.style.display = 'block';
 
   const dpr = window.devicePixelRatio || 1;
-  const W   = canvas.offsetWidth || canvas.parentElement.clientWidth;
+  const W   = canvas.offsetWidth || canvas.parentElement?.clientWidth || 300;
   const H   = 150;
   canvas.width  = W * dpr;
   canvas.height = H * dpr;
@@ -331,14 +331,29 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
 
   const MUTED  = '#94a3b8';
   const BORDER = '#334155';
-  const PAD    = { top: 12, right: 48, bottom: 28, left: 48 }; // right pad for target labels
+  const PAD    = { top: 12, right: 48, bottom: 28, left: 48 };
   const cW     = W - PAD.left - PAD.right;
   const cH     = H - PAD.top  - PAD.bottom;
 
-  const times  = timestamps.map(t => t.getTime());
-  const minT   = times[0];
-  const maxT   = times[times.length - 1];
-  const tRange = maxT - minT || 1;
+  const hasData = timestamps.length > 0;
+  const single  = timestamps.length === 1;
+
+  // X range: use data if available, otherwise span midnight→midnight for the viewed day
+  let minT, maxT, tRange;
+  if (hasData) {
+    const ms = timestamps.map(t => t.getTime());
+    minT   = ms[0];
+    maxT   = ms[ms.length - 1];
+    tRange = maxT - minT || 1;
+  } else {
+    const dayStart = new Date(selectedDate); dayStart.setHours(0, 0, 0, 0);
+    minT   = dayStart.getTime();
+    maxT   = minT + 86400000;
+    tRange = 86400000;
+  }
+
+  const times = timestamps.map(t => t.getTime());
+  const xOf   = t => single ? PAD.left + cW / 2 : PAD.left + ((t - minT) / tRange) * cW;
 
   // Cumulative totals per series
   const cumSeries = series.map(s => {
@@ -347,14 +362,13 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
   });
 
   // Scale y-axis to fit both data AND targets
-  const dataMax   = Math.max(...cumSeries.map(cum => cum[cum.length - 1]));
-  const targetMax = Math.max(0, ...series.map(s => s.target || 0));
+  const dataMax    = hasData ? Math.max(...cumSeries.map(cum => cum[cum.length - 1])) : 0;
+  const targetMax  = Math.max(0, ...series.map(s => s.target || 0));
   const overallMax = Math.max(dataMax, targetMax);
 
-  const xOf = t => PAD.left + ((t - minT) / tRange) * cW;
-  const yOf = v => PAD.top  + cH - (v / (overallMax * 1.15 || 1)) * cH;
+  const yOf = v => PAD.top + cH - (v / (overallMax * 1.15 || 1)) * cH;
 
-  // Grid lines (left axis)
+  // Grid lines + y-axis labels
   ctx.strokeStyle = BORDER;
   ctx.lineWidth   = 1;
   for (let i = 0; i <= 3; i++) {
@@ -367,15 +381,17 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     ctx.fillText(v + (unit ? unit : ''), PAD.left - 6, y + 3);
   }
 
-  // X-axis time labels
-  ctx.fillStyle = MUTED;
-  ctx.textAlign = 'center';
-  timestamps.forEach((t, i) => {
-    const lbl = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    ctx.fillText(lbl, xOf(times[i]), H - PAD.bottom + 14);
-  });
+  // X-axis time labels (only when there's data to label)
+  if (hasData) {
+    ctx.fillStyle = MUTED;
+    ctx.textAlign = 'center';
+    timestamps.forEach((t, i) => {
+      const lbl = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      ctx.fillText(lbl, xOf(times[i]), H - PAD.bottom + 14);
+    });
+  }
 
-  // Target reference lines (drawn before data so data renders on top)
+  // Target reference lines (always drawn)
   series.forEach(s => {
     if (!s.target) return;
     const y = yOf(s.target);
@@ -386,17 +402,18 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     ctx.globalAlpha = 0.7;
     ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
     ctx.restore();
-    // Right-side label
-    ctx.fillStyle = s.colour.line;
-    ctx.font      = series.length > 1 ? 'bold 8px system-ui,sans-serif' : 'bold 10px system-ui,sans-serif';
-    ctx.textAlign = 'left';
+    ctx.fillStyle   = s.colour.line;
+    ctx.font        = series.length > 1 ? 'bold 8px system-ui,sans-serif' : 'bold 10px system-ui,sans-serif';
+    ctx.textAlign   = 'left';
     ctx.globalAlpha = 0.85;
     const lbl = series.length > 1 ? s.label[0] : s.target.toLocaleString() + (unit || '');
     ctx.fillText(lbl, PAD.left + cW + 4, y + 4);
     ctx.globalAlpha = 1;
   });
 
-  // Draw each data series
+  // Data series — only when there are entries
+  if (!hasData) return;
+
   series.forEach((s, si) => {
     const cum    = cumSeries[si];
     const colour = s.colour;
@@ -418,7 +435,7 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     cum.forEach((v, i) => { const x = xOf(times[i]), y = yOf(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
     ctx.stroke();
 
-    // Dots + value labels (only for single-series charts to avoid clutter)
+    // Dots + value labels
     if (series.length === 1) {
       cum.forEach((v, i) => {
         const x = xOf(times[i]), y = yOf(v);
@@ -431,7 +448,6 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
         ctx.fillText(v.toLocaleString(), x, y - 8);
       });
     } else {
-      // Just dots for multi-series
       cum.forEach((v, i) => {
         const x = xOf(times[i]), y = yOf(v);
         ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
