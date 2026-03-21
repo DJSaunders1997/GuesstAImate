@@ -121,6 +121,38 @@ function deleteLog(id) {
   renderLogs();
 }
 
+function editLog(id) {
+  const entry = document.querySelector(`.log-entry[data-id="${id}"]`);
+  if (!entry) return;
+  const log = getLogs().find(l => l.id === id);
+  if (!log) return;
+
+  entry.innerHTML = `
+    <div class="edit-fields">
+      <input class="edit-food" value="${escapeHtml(log.food)}" />
+      <input class="edit-calories" type="number" min="0" value="${log.calories}" />
+      <span class="edit-unit">kcal</span>
+    </div>
+    <div class="log-right">
+      <button class="save-btn" onclick="saveLog(${id})">Save</button>
+      <button class="cancel-btn" onclick="renderLogs()">✕</button>
+    </div>`;
+
+  entry.querySelector('.edit-food').focus();
+}
+
+function saveLog(id) {
+  const entry = document.querySelector(`.log-entry[data-id="${id}"]`);
+  if (!entry) return;
+  const food     = entry.querySelector('.edit-food').value.trim();
+  const calories = parseInt(entry.querySelector('.edit-calories').value, 10);
+  if (!food || isNaN(calories) || calories < 0) return;
+
+  const logs = getLogs().map(l => l.id === id ? { ...l, food, calories } : l);
+  saveLogs(logs);
+  renderLogs();
+}
+
 // ── RENDER ──────────────────────────────────────────────────────────────────
 function renderLogs() {
   const today     = new Date().toDateString();
@@ -137,13 +169,14 @@ function renderLogs() {
   logList.innerHTML = todayLogs.map(entry => {
     const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return `
-      <div class="log-entry">
+      <div class="log-entry" data-id="${entry.id}">
         <div>
           <div class="log-food">${escapeHtml(entry.food)}</div>
           <div class="log-time">${time}</div>
         </div>
         <div class="log-right">
           <div class="log-calories">${entry.calories} <span>kcal</span></div>
+          <button class="edit-btn" onclick="editLog(${entry.id})" title="Edit entry">✏️</button>
           <button class="delete-btn" onclick="deleteLog(${entry.id})" title="Remove entry">✕</button>
         </div>
       </div>`;
