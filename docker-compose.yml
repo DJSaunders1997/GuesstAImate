@@ -1,0 +1,31 @@
+services:
+  # FastAPI backend — Whisper + GPT-4o-mini calorie tracker
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:80"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+  # Static frontend served by nginx for local testing
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+# TESTING:
+# 1. Set your key:  export OPENAI_API_KEY="sk-..."
+# 2. Start:         docker compose up --build
+# 3. Open:          http://localhost:8080
+#    API docs:      http://localhost:8000/docs
+# 4. Quick check:   curl http://localhost:8000/health
+#
+# NOTE: For docker compose, BACKEND_URL in frontend/index.html must be
+# set to 'http://localhost:8000' before building the frontend image.
+# Leave it as '' (empty) when running via `uv run uvicorn` locally.
