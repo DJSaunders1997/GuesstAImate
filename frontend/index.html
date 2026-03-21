@@ -10,6 +10,7 @@
 
 <header>
   <h1>Guesst<span class="ai">AI</span>mate</h1>
+  <button id="targets-btn" onclick="openTargets()" title="Edit daily targets">&#9881;</button>
   <div id="daily-total"><span id="daily-label">Today</span>: <strong id="total-cal">0</strong> kcal</div>
   <div id="macro-totals">
     <span><span class="macro-p">Protein</span> <strong id="total-protein">0</strong>g</span>
@@ -36,20 +37,29 @@
   <div id="log-list"></div>
 
   <div class="chart-section">
-    <div class="chart-header">
-      <span>Calories</span>
-      <button id="targets-btn" onclick="openTargets()" title="Edit daily targets">&#9881;</button>
-    </div>
+    <div class="chart-header"><span>Calories</span></div>
     <canvas id="cal-chart"></canvas>
   </div>
 
   <div class="chart-section">
     <div class="chart-header"><span>Macros</span></div>
     <div class="macro-grid">
-      <canvas id="chart-protein"></canvas>
-      <canvas id="chart-carbs"></canvas>
-      <canvas id="chart-fat"></canvas>
-      <canvas id="chart-fibre"></canvas>
+      <div class="macro-subplot">
+        <div class="macro-subplot-header macro-p">Protein</div>
+        <canvas id="chart-protein"></canvas>
+      </div>
+      <div class="macro-subplot">
+        <div class="macro-subplot-header macro-c">Carbs</div>
+        <canvas id="chart-carbs"></canvas>
+      </div>
+      <div class="macro-subplot">
+        <div class="macro-subplot-header macro-f">Fat</div>
+        <canvas id="chart-fat"></canvas>
+      </div>
+      <div class="macro-subplot">
+        <div class="macro-subplot-header macro-fi">Fibre</div>
+        <canvas id="chart-fibre"></canvas>
+      </div>
     </div>
   </div>
 </div>

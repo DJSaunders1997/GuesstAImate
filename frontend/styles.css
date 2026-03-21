@@ -23,6 +23,7 @@ body {
 
 /* ── HEADER ─────────────────────────────────────── */
 header {
+  position: relative;
   padding: 1.25rem 1rem 1rem;
   text-align: center;
   border-bottom: 1px solid var(--border);
@@ -327,10 +328,13 @@ header h1 .ai { color: var(--primary); }
 }
 
 #targets-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
   background: none;
   border: none;
   color: var(--muted);
-  font-size: 1rem;
+  font-size: 1.2rem;
   cursor: pointer;
   line-height: 1;
   padding: 0;
@@ -342,6 +346,19 @@ header h1 .ai { color: var(--primary); }
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.6rem;
+}
+
+.macro-subplot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.macro-subplot-header {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 /* ── TARGETS DIALOG ─────────────────────────────── */
