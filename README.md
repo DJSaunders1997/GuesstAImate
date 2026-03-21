@@ -2,6 +2,11 @@
 > Voice-powered AI calorie tracker — speak what you ate, get an instant estimate.
 
 ## Philosophy: Consistency Over Perfection
+
+this is an easy wasy to track your callories to help be healthy and weightloss.
+
+Instread of having to open something like myfitnesspal, having to go thorugh lots of forms and inupts and entering the exact gram amount we can use natural langauge instead!
+
 Apps like MyFitnessPal cause tracking fatigue because of constant weighing, searching, and form-filling. GuesstAImate removes all of that. You speak one natural sentence — *"I had a bowl of pasta and a light salad"* — and the AI logs a rough-but-reasonable estimate immediately. The goal is to build a sustainable daily habit, not to achieve laboratory-grade accuracy.
 
 ---
