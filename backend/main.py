@@ -23,22 +23,12 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GuesstAImate API")
 
-# ---------------------------------------------------------------------------
-# CORS — allow only the origins listed in the ALLOWED_ORIGINS env variable.
-# Set this to your GitHub Pages URL in Azure (e.g. https://username.github.io).
-# ---------------------------------------------------------------------------
-ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5500,http://127.0.0.1:5500").split(",")
-    if o.strip()
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 _api_key = os.getenv("OPENAI_API_KEY")
@@ -49,7 +39,6 @@ client = OpenAI(api_key=_api_key)
 async def startup_event():
     logger.info("=" * 50)
     logger.info("GuesstAImate API starting up")
-    logger.info("Allowed CORS origins: %s", ALLOWED_ORIGINS)
     if not _api_key or _api_key.startswith("sk-your"):
         logger.warning("OPENAI_API_KEY is not set or is still the placeholder — requests will fail!")
     else:
@@ -60,11 +49,10 @@ async def startup_event():
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.perf_counter()
-    logger.info("--> %s %s  (origin: %s)", request.method, request.url.path,
-                request.headers.get("origin", "—"))
+    logger.info("--> %s %s", request.method, request.url.path)
     try:
         response = await call_next(request)
-    except Exception as exc:  # noqa: BLE001
+    except Exception:
         logger.exception("Unhandled exception during %s %s", request.method, request.url.path)
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
     elapsed = (time.perf_counter() - start) * 1000

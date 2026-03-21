@@ -1,0 +1,33 @@
+name: Python CI 🐍
+
+on:
+  push:
+    paths:
+      - "backend/**"
+  pull_request:
+    paths:
+      - "backend/**"
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --no-install-project
+
+      - name: Lint with ruff
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Type-check with mypy
+        working-directory: backend
+        run: uv run mypy main.py --ignore-missing-imports

@@ -38,11 +38,18 @@ User speaks → MediaRecorder captures audio → POST to Azure FastAPI
 ```
 GuesstAImate/
 ├── frontend/
-│   └── index.html          # Single-page app (deploy to GitHub Pages)
+│   ├── index.html          # Single-page app (deploy to GitHub Pages)
+│   └── Dockerfile          # Nginx image for local Docker testing
 ├── backend/
 │   ├── main.py             # FastAPI app
-│   ├── requirements.txt    # Python dependencies
+│   ├── pyproject.toml      # Python dependencies (uv)
+│   ├── .env                # Local secrets (never committed)
 │   └── Dockerfile          # Container definition
+├── docker-compose.yml      # Runs frontend + backend together
+├── .github/
+│   └── workflows/
+│       ├── ci_python.yml   # Lint + type-check on backend changes
+│       └── static.yml      # Deploy frontend to GitHub Pages
 └── README.md
 ```
 
@@ -50,24 +57,26 @@ GuesstAImate/
 
 ## Local Development
 
-### 1. Run the backend
-
 ```bash
-cd backend
-uv sync
 export OPENAI_API_KEY=sk-...
-export ALLOWED_ORIGINS=http://localhost:8000,http://127.0.0.1:5500
-uv run uvicorn main:app --reload --port 8000
+docker compose up --build
 ```
 
-The API will be available at `http://localhost:8000`.
-Check health: `http://localhost:8000/health`
+| URL | Purpose |
+|---|---|
+| `http://localhost:8080` | Frontend (nginx) |
+| `http://localhost:8000` | Backend API |
+| `http://localhost:8000/docs` | API docs |
+| `http://localhost:8000/health` | Health check |
 
-### 2. Run the frontend
+---
 
-Open `frontend/index.html` in a browser (use VS Code Live Server on port 5500, or similar).
+## CI / GitHub Actions
 
-Edit the `BACKEND_URL` constant at the top of the `<script>` block in `index.html` to point to `http://localhost:8000` for local testing.
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci_python.yml` | Push / PR touching `backend/` | Runs `ruff` linter and `mypy` type-checker |
+| `static.yml` | Push to `main` touching `frontend/` | Deploys `frontend/` to GitHub Pages |
 
 ---
 
@@ -108,7 +117,6 @@ az containerapp create \
 | Variable | Description | Example |
 |---|---|---|
 | `OPENAI_API_KEY` | Your OpenAI API key | `sk-...` |
-| `ALLOWED_ORIGINS` | Comma-separated allowed CORS origins | `https://username.github.io` |
 
 ---
 
