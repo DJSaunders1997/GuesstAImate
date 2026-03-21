@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GuesstAImate</title>
+  <style>
+    :root {
+      --primary:      #22c55e;
+      --primary-dark: #16a34a;
+      --danger:       #ef4444;
+      --warn:         #f59e0b;
+      --bg:           #0f172a;
+      --surface:      #1e293b;
+      --text:         #f1f5f9;
+      --muted:        #94a3b8;
+      --border:       #334155;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ─────────────────────────────────────── */
+    header {
+      padding: 1.25rem 1rem 1rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; }
+    header h1 .ai { color: var(--primary); }
+    #daily-total { margin-top: 0.35rem; font-size: 0.95rem; color: var(--muted); }
+    #daily-total strong { color: var(--primary); font-size: 1.15rem; }
+
+    /* ── RECORD SECTION ─────────────────────────────── */
+    .record-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2.5rem 1rem 1.5rem;
+      gap: 1.25rem;
+    }
+
+    #record-btn {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      font-size: 3.2rem;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      box-shadow: 0 0 0 0 rgba(34,197,94,0.4);
+      line-height: 1;
+    }
+    #record-btn:hover:not(:disabled) { transform: scale(1.06); }
+    #record-btn:disabled { cursor: not-allowed; }
+
+    #record-btn.recording {
+      background: var(--danger);
+      animation: pulse 1.3s ease-in-out infinite;
+    }
+    #record-btn.processing { background: var(--warn); }
+
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0  0   rgba(239,68,68,0.55); }
+      70%  { box-shadow: 0 0 0 22px rgba(239,68,68,0);    }
+      100% { box-shadow: 0 0 0  0   rgba(239,68,68,0);    }
+    }
+
+    #status {
+      font-size: 1rem;
+      color: var(--muted);
+      min-height: 1.4em;
+      text-align: center;
+      max-width: 320px;
+    }
+    #status.error   { color: var(--danger); }
+    #status.success { color: var(--primary); }
+
+    /* ── LOG LIST ───────────────────────────────────── */
+    .logs-section {
+      flex: 1;
+      padding: 0 1rem 2rem;
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .logs-header h2 {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    #export-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.8rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #export-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+    #log-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .log-entry {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      animation: slideIn 0.25s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    .log-food { font-size: 0.95rem; font-weight: 500; }
+    .log-time { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+    .log-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
+
+    .log-calories { font-size: 1.1rem; font-weight: 700; color: var(--primary); }
+    .log-calories span { font-size: 0.72rem; font-weight: 400; color: var(--muted); }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: var(--border);
+      font-size: 0.95rem;
+      cursor: pointer;
+      padding: 0 0.2rem;
+      transition: color 0.15s;
+      line-height: 1;
+    }
+    .delete-btn:hover { color: var(--danger); }
+
+    #empty-state {
+      text-align: center;
+      padding: 2.5rem 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Guesst<span class="ai">AI</span>mate</h1>
+  <div id="daily-total">Today: <strong id="total-cal">0</strong> kcal</div>
+</header>
+
+<div class="record-section">
+  <button id="record-btn" aria-label="Record">🎙️</button>
+  <div id="status">Tap to record what you ate</div>
+</div>
+
+<div class="logs-section">
+  <div class="logs-header">
+    <h2>Today's Log</h2>
+    <button id="export-btn">Export CSV</button>
+  </div>
+  <div id="log-list"></div>
+</div>
+
+<script>
+  // ── CONFIG ──────────────────────────────────────────────────────────────────
+  // After deploying to Azure, paste your Container App URL here.
+  // Example: 'https://guesstaimate-api.nicemeadow-abc123.uksouth.azurecontainerapps.io'
+  // Local dev: leave as empty string so fetch('/track') hits the same origin (localhost:8000).
+  // Production: set this to your Azure Container App URL before deploying to GitHub Pages.
+  // Example: 'https://guesstaimate-api.nicemeadow-abc123.uksouth.azurecontainerapps.io'
+  const BACKEND_URL = '';
+
+  const STORAGE_KEY = 'guesstaimate_logs';
+
+  // ── ELEMENTS ────────────────────────────────────────────────────────────────
+  const btn      = document.getElementById('record-btn');
+  const status   = document.getElementById('status');
+  const logList  = document.getElementById('log-list');
+  const totalCal = document.getElementById('total-cal');
+
+  document.getElementById('export-btn').addEventListener('click', downloadCSV);
+
+  // ── RECORDING STATE ──────────────────────────────────────────────────────────
+  let mediaRecorder = null;
+  let audioChunks   = [];
+  let isRecording   = false;
+
+  btn.addEventListener('click', () => {
+    if (!isRecording) startRecording();
+    else              stopRecording();
+  });
+
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks  = [];
+
+      // Pick the best supported MIME type (webm on Chrome, ogg on Firefox)
+      const mimeType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', '']
+        .find(m => m === '' || MediaRecorder.isTypeSupported(m));
+
+      mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        processAudio();
+      };
+
+      mediaRecorder.start(250); // collect chunks every 250 ms
+      isRecording = true;
+      btn.className   = 'recording';
+      btn.textContent = '⏹️';
+      setStatus('Recording… tap to stop', '');
+    } catch {
+      setStatus('Microphone access denied. Please allow microphone access and try again.', 'error');
+    }
+  }
+
+  function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    isRecording     = false;
+    btn.className   = 'processing';
+    btn.textContent = '⏳';
+    btn.disabled    = true;
+    setStatus('Processing…', '');
+  }
+
+  async function processAudio() {
+    try {
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+      const blob     = new Blob(audioChunks, { type: mimeType });
+      const ext      = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm';
+
+      const formData = new FormData();
+      formData.append('audio', blob, `recording.${ext}`);
+
+      const res = await fetch(`${BACKEND_URL}/track`, { method: 'POST', body: formData, credentials: 'omit' });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `Server error (${res.status})`);
+      }
+
+      const { food, calories, transcript } = await res.json();
+      addLog(food, calories, transcript);
+      setStatus(`Logged: ${food} — ${calories} kcal`, 'success');
+    } catch (err) {
+      setStatus(`Error: ${err.message}`, 'error');
+    } finally {
+      btn.className   = '';
+      btn.textContent = '🎙️';
+      btn.disabled    = false;
+    }
+  }
+
+  // ── STORAGE ─────────────────────────────────────────────────────────────────
+  function getLogs() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    catch { return []; }
+  }
+
+  function saveLogs(logs) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  }
+
+  function addLog(food, calories, transcript) {
+    const logs = getLogs();
+    logs.unshift({ id: Date.now(), timestamp: new Date().toISOString(), food, calories, transcript: transcript || '' });
+    saveLogs(logs);
+    renderLogs();
+  }
+
+  function deleteLog(id) {
+    saveLogs(getLogs().filter(l => l.id !== id));
+    renderLogs();
+  }
+
+  // ── RENDER ──────────────────────────────────────────────────────────────────
+  function renderLogs() {
+    const today     = new Date().toDateString();
+    const todayLogs = getLogs().filter(l => new Date(l.timestamp).toDateString() === today);
+    const total     = todayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
+
+    totalCal.textContent = total.toLocaleString();
+
+    if (todayLogs.length === 0) {
+      logList.innerHTML = '<div id="empty-state">No entries yet today — tap the button above and tell me what you ate!</div>';
+      return;
+    }
+
+    logList.innerHTML = todayLogs.map(entry => {
+      const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `
+        <div class="log-entry">
+          <div>
+            <div class="log-food">${escapeHtml(entry.food)}</div>
+            <div class="log-time">${time}</div>
+          </div>
+          <div class="log-right">
+            <div class="log-calories">${entry.calories} <span>kcal</span></div>
+            <button class="delete-btn" onclick="deleteLog(${entry.id})" title="Remove entry">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g,  '&amp;')
+      .replace(/</g,  '&lt;')
+      .replace(/>/g,  '&gt;')
+      .replace(/"/g,  '&quot;');
+  }
+
+  function setStatus(msg, type) {
+    status.textContent = msg;
+    status.className   = type;
+  }
+
+  // ── CSV EXPORT ──────────────────────────────────────────────────────────────
+  function downloadCSV() {
+    const logs = getLogs();
+    if (logs.length === 0) { alert('No entries to export yet!'); return; }
+
+    const q    = s => `"${String(s || '').replace(/"/g, '""')}"`;
+    const rows = logs.map(l => {
+      const d = new Date(l.timestamp);
+      return [d.toLocaleDateString(), d.toLocaleTimeString(), q(l.food), l.calories, q(l.transcript)].join(',');
+    });
+
+    const csv  = ['Date,Time,Food,Calories,Transcript', ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `guesstaimate_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ── INIT ────────────────────────────────────────────────────────────────────
+  renderLogs();
+</script>
+
+</body>
+</html>
