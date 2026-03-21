@@ -10,7 +10,7 @@
 
 <header>
   <h1>Guesst<span class="ai">AI</span>mate</h1>
-  <div id="daily-total">Today: <strong id="total-cal">0</strong> kcal</div>
+  <div id="daily-total"><span id="daily-label">Today</span>: <strong id="total-cal">0</strong> kcal</div>
 </header>
 
 <div class="record-section">
@@ -20,7 +20,11 @@
 
 <div class="logs-section">
   <div class="logs-header">
-    <h2>Today's Log</h2>
+    <div class="day-nav">
+      <button id="prev-day" onclick="prevDay()">&#8249;</button>
+      <span id="day-label">Today</span>
+      <button id="next-day" onclick="nextDay()" disabled>&#8250;</button>
+    </div>
     <button id="export-btn">Export CSV</button>
   </div>
   <div id="log-list"></div>

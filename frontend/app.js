@@ -7,6 +7,7 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '0.
 }
 
 const STORAGE_KEY = 'guesstaimate_logs';
+let selectedDate = new Date();
 
 // ── ELEMENTS ────────────────────────────────────────────────────────────────
 const btn      = document.getElementById('record-btn');
@@ -15,6 +16,39 @@ const logList  = document.getElementById('log-list');
 const totalCal = document.getElementById('total-cal');
 
 document.getElementById('export-btn').addEventListener('click', downloadCSV);
+
+// ── DAY NAVIGATION ───────────────────────────────────────────────────────────
+function formatDayLabel(date) {
+  const today = new Date();
+  if (date.toDateString() === today.toDateString()) return 'Today';
+  return date.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function updateDayNav() {
+  const isToday  = selectedDate.toDateString() === new Date().toDateString();
+  const label    = formatDayLabel(selectedDate);
+  const dayLabel   = document.getElementById('day-label');
+  const dailyLabel = document.getElementById('daily-label');
+  const nextBtn    = document.getElementById('next-day');
+  if (dayLabel)   dayLabel.textContent   = label;
+  if (dailyLabel) dailyLabel.textContent = label;
+  if (nextBtn)    nextBtn.disabled       = isToday;
+}
+
+function prevDay() {
+  const d = new Date(selectedDate);
+  d.setDate(d.getDate() - 1);
+  selectedDate = d;
+  renderLogs();
+}
+
+function nextDay() {
+  if (selectedDate.toDateString() === new Date().toDateString()) return;
+  const d = new Date(selectedDate);
+  d.setDate(d.getDate() + 1);
+  selectedDate = d;
+  renderLogs();
+}
 
 // ── RECORDING STATE ──────────────────────────────────────────────────────────
 let mediaRecorder = null;
@@ -102,14 +136,20 @@ function saveLogs(logs) {
 
 function addLog(food, calories, transcript, timeHint) {
   const logs = getLogs();
+  const base  = new Date(selectedDate);
   let timestamp;
   if (timeHint) {
     const [hours, minutes] = timeHint.split(':').map(Number);
-    const d = new Date();
-    d.setHours(hours, minutes, 0, 0);
-    timestamp = d.toISOString();
+    base.setHours(hours, minutes, 0, 0);
+    timestamp = base.toISOString();
   } else {
-    timestamp = new Date().toISOString();
+    const now = new Date();
+    if (selectedDate.toDateString() === now.toDateString()) {
+      timestamp = now.toISOString();
+    } else {
+      base.setHours(12, 0, 0, 0);
+      timestamp = base.toISOString();
+    }
   }
   logs.unshift({ id: Date.now(), timestamp, food, calories, transcript: transcript || '' });
   saveLogs(logs);
@@ -155,18 +195,20 @@ function saveLog(id) {
 
 // ── RENDER ──────────────────────────────────────────────────────────────────
 function renderLogs() {
-  const today     = new Date().toDateString();
-  const todayLogs = getLogs().filter(l => new Date(l.timestamp).toDateString() === today);
-  const total     = todayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
+  const selStr  = selectedDate.toDateString();
+  const dayLogs = getLogs().filter(l => new Date(l.timestamp).toDateString() === selStr);
+  const total   = dayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
 
   totalCal.textContent = total.toLocaleString();
+  updateDayNav();
 
-  if (todayLogs.length === 0) {
-    logList.innerHTML = '<div id="empty-state">No entries yet today - tap the button above and tell me what you ate!</div>';
+  if (dayLogs.length === 0) {
+    const isToday = selectedDate.toDateString() === new Date().toDateString();
+    logList.innerHTML = `<div id="empty-state">${isToday ? 'No entries yet today - tap the button above and tell me what you ate!' : 'No entries for this day.'}</div>`;
     return;
   }
 
-  logList.innerHTML = todayLogs.map(entry => {
+  logList.innerHTML = dayLogs.map(entry => {
     const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     return `
       <div class="log-entry" data-id="${entry.id}">

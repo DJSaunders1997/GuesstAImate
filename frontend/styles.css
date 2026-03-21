@@ -114,6 +114,37 @@ header h1 .ai { color: var(--primary); }
 }
 #export-btn:hover { border-color: var(--primary); color: var(--primary); }
 
+/* ── DAY NAVIGATION ─────────────────────────────── */
+.day-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#day-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  min-width: 6rem;
+  text-align: center;
+}
+
+.day-nav-btn, #prev-day, #next-day {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+#prev-day:hover, #next-day:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+#next-day:disabled { opacity: 0.3; cursor: default; }
+
 #log-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
 .log-entry {
