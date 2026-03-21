@@ -170,48 +170,58 @@ function deleteLog(id) {
   renderLogs();
 }
 
+// ── SHARED ENTRY FORM ────────────────────────────────────────────────────────
+function entryFormHTML(vals, saveCall) {
+  return `
+    <div class="edit-fields">
+      <input class="edit-food" placeholder="Food description" value="${escapeHtml(vals.food)}" />
+      <input class="edit-calories" type="number" min="0" placeholder="0" value="${vals.calories}" />
+      <span class="edit-unit">kcal</span>
+    </div>
+    <div class="edit-macros">
+      <label>P <input class="edit-protein" type="number" min="0" step="0.1" value="${vals.protein}" />g</label>
+      <label>C <input class="edit-carbs"   type="number" min="0" step="0.1" value="${vals.carbs}" />g</label>
+      <label>F <input class="edit-fat"     type="number" min="0" step="0.1" value="${vals.fat}" />g</label>
+      <label>Fi <input class="edit-fibre"  type="number" min="0" step="0.1" value="${vals.fibre}" />g</label>
+      <label class="edit-time-label">🕐 <input class="edit-time" type="time" value="${vals.timeVal}" /></label>
+    </div>
+    <div class="log-right">
+      <button class="save-btn" onclick="${saveCall}">Save</button>
+      <button class="cancel-btn" onclick="renderLogs()">✕</button>
+    </div>`;
+}
+
+function readEntryForm(entry) {
+  return {
+    food:     entry.querySelector('.edit-food').value.trim(),
+    calories: parseInt(entry.querySelector('.edit-calories').value, 10),
+    protein:  parseFloat(entry.querySelector('.edit-protein').value) || 0,
+    carbs:    parseFloat(entry.querySelector('.edit-carbs').value)   || 0,
+    fat:      parseFloat(entry.querySelector('.edit-fat').value)     || 0,
+    fibre:    parseFloat(entry.querySelector('.edit-fibre').value)   || 0,
+    timeStr:  entry.querySelector('.edit-time').value,
+  };
+}
+
 function editLog(id) {
   const entry = document.querySelector(`.log-entry[data-id="${id}"]`);
   if (!entry) return;
   const log = getLogs().find(l => l.id === id);
   if (!log) return;
-
-  const logDate = new Date(log.timestamp);
-  const timeVal  = logDate.toTimeString().slice(0, 5); // HH:MM
-
-  entry.innerHTML = `
-    <div class="edit-fields">
-      <input class="edit-food" value="${escapeHtml(log.food)}" />
-      <input class="edit-calories" type="number" min="0" value="${log.calories}" />
-      <span class="edit-unit">kcal</span>
-    </div>
-    <div class="edit-macros">
-      <label>P <input class="edit-protein" type="number" min="0" step="0.1" value="${log.protein || 0}" />g</label>
-      <label>C <input class="edit-carbs"   type="number" min="0" step="0.1" value="${log.carbs   || 0}" />g</label>
-      <label>F <input class="edit-fat"     type="number" min="0" step="0.1" value="${log.fat     || 0}" />g</label>
-      <label>Fi <input class="edit-fibre"  type="number" min="0" step="0.1" value="${log.fibre   || 0}" />g</label>
-      <label class="edit-time-label">🕐 <input class="edit-time" type="time" value="${timeVal}" /></label>
-    </div>
-    <div class="log-right">
-      <button class="save-btn" onclick="saveLog(${id})">Save</button>
-      <button class="cancel-btn" onclick="renderLogs()">✕</button>
-    </div>`;
-
+  const timeVal = new Date(log.timestamp).toTimeString().slice(0, 5);
+  entry.innerHTML = entryFormHTML(
+    { food: log.food, calories: log.calories, protein: log.protein || 0,
+      carbs: log.carbs || 0, fat: log.fat || 0, fibre: log.fibre || 0, timeVal },
+    `saveLog(${id})`
+  );
   entry.querySelector('.edit-food').focus();
 }
 
 function saveLog(id) {
   const entry = document.querySelector(`.log-entry[data-id="${id}"]`);
   if (!entry) return;
-  const food     = entry.querySelector('.edit-food').value.trim();
-  const calories = parseInt(entry.querySelector('.edit-calories').value, 10);
-  const protein  = parseFloat(entry.querySelector('.edit-protein').value) || 0;
-  const carbs    = parseFloat(entry.querySelector('.edit-carbs').value)   || 0;
-  const fat      = parseFloat(entry.querySelector('.edit-fat').value)     || 0;
-  const fibre    = parseFloat(entry.querySelector('.edit-fibre').value)   || 0;
-  const timeStr  = entry.querySelector('.edit-time').value; // HH:MM
+  const { food, calories, protein, carbs, fat, fibre, timeStr } = readEntryForm(entry);
   if (!food || isNaN(calories) || calories < 0) return;
-
   const logs = getLogs().map(l => {
     if (l.id !== id) return l;
     let timestamp = l.timestamp;
@@ -225,6 +235,32 @@ function saveLog(id) {
   });
   saveLogs(logs);
   renderLogs();
+}
+
+function showAddForm() {
+  const existing = document.getElementById('new-entry-form');
+  if (existing) { existing.querySelector('.edit-food').focus(); return; }
+  const isToday = selectedDate.toDateString() === new Date().toDateString();
+  const ref = isToday ? new Date() : (() => { const d = new Date(selectedDate); d.setHours(12, 0, 0, 0); return d; })();
+  const timeVal = ref.toTimeString().slice(0, 5);
+  document.getElementById('empty-state')?.remove();
+  const div = document.createElement('div');
+  div.className = 'log-entry';
+  div.id = 'new-entry-form';
+  div.innerHTML = entryFormHTML(
+    { food: '', calories: '', protein: 0, carbs: 0, fat: 0, fibre: 0, timeVal },
+    'saveNewLog()'
+  );
+  logList.insertBefore(div, logList.firstChild);
+  div.querySelector('.edit-food').focus();
+}
+
+function saveNewLog() {
+  const entry = document.getElementById('new-entry-form');
+  if (!entry) return;
+  const { food, calories, protein, carbs, fat, fibre, timeStr } = readEntryForm(entry);
+  if (!food || isNaN(calories) || calories < 0) { entry.querySelector('.edit-food').focus(); return; }
+  addLog(food, calories, protein, carbs, fat, fibre, '', timeStr || null);
 }
 
 // ── RENDER ──────────────────────────────────────────────────────────────────
