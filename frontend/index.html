@@ -11,6 +11,12 @@
 <header>
   <h1>Guesst<span class="ai">AI</span>mate</h1>
   <div id="daily-total"><span id="daily-label">Today</span>: <strong id="total-cal">0</strong> kcal</div>
+  <div id="macro-totals">
+    <span><span class="macro-p">Protein</span> <strong id="total-protein">0</strong>g</span>
+    <span><span class="macro-c">Carbs</span> <strong id="total-carbs">0</strong>g</span>
+    <span><span class="macro-f">Fat</span> <strong id="total-fat">0</strong>g</span>
+    <span><span class="macro-fi">Fibre</span> <strong id="total-fibre">0</strong>g</span>
+  </div>
 </header>
 
 <div class="record-section">
@@ -28,7 +34,49 @@
     <button id="export-btn">Export CSV</button>
   </div>
   <div id="log-list"></div>
-  <canvas id="cal-chart"></canvas>
+
+  <div class="chart-section">
+    <div class="chart-header">
+      <span>Calories</span>
+      <button id="targets-btn" onclick="openTargets()" title="Edit daily targets">&#9881;</button>
+    </div>
+    <canvas id="cal-chart"></canvas>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-header"><span>Macros</span></div>
+    <div class="macro-grid">
+      <canvas id="chart-protein"></canvas>
+      <canvas id="chart-carbs"></canvas>
+      <canvas id="chart-fat"></canvas>
+      <canvas id="chart-fibre"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Targets dialog -->
+<div id="targets-overlay" onclick="closeTargets()"></div>
+<div id="targets-dialog">
+  <h3>Daily Targets</h3>
+  <label><span class="macro-cal">Calories</span>
+    <input type="number" id="t-calories" min="500" max="10000" /> kcal
+  </label>
+  <label><span class="macro-p">Protein</span>
+    <input type="number" id="t-protein" min="0" max="500" /> g
+  </label>
+  <label><span class="macro-c">Carbs</span>
+    <input type="number" id="t-carbs" min="0" max="1000" /> g
+  </label>
+  <label><span class="macro-f">Fat</span>
+    <input type="number" id="t-fat" min="0" max="500" /> g
+  </label>
+  <label><span class="macro-fi">Fibre</span>
+    <input type="number" id="t-fibre" min="0" max="200" /> g
+  </label>
+  <div class="targets-actions">
+    <button onclick="saveTargets()">Save</button>
+    <button class="cancel-btn" onclick="closeTargets()">Cancel</button>
+  </div>
 </div>
 
 <script src="app.js"></script>

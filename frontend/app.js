@@ -113,7 +113,9 @@ async function processAudio() {
     }
 
     const { items, transcript } = await res.json();
-    items.forEach(({ food, calories, time_hint }) => addLog(food, calories, transcript, time_hint));
+    items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
+      addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
+    );
     if (items.length === 1) {
       setStatus(`Logged: ${items[0].food} - ${items[0].calories} kcal`, 'success');
     } else {
@@ -139,7 +141,7 @@ function saveLogs(logs) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
 }
 
-function addLog(food, calories, transcript, timeHint) {
+function addLog(food, calories, protein, carbs, fat, fibre, transcript, timeHint) {
   const logs = getLogs();
   const base  = new Date(selectedDate);
   let timestamp;
@@ -156,7 +158,9 @@ function addLog(food, calories, transcript, timeHint) {
       timestamp = base.toISOString();
     }
   }
-  logs.unshift({ id: Date.now(), timestamp, food, calories, transcript: transcript || '' });
+  logs.unshift({ id: Date.now(), timestamp, food, calories,
+    protein: protein || 0, carbs: carbs || 0, fat: fat || 0, fibre: fibre || 0,
+    transcript: transcript || '' });
   saveLogs(logs);
   renderLogs();
 }
@@ -178,6 +182,12 @@ function editLog(id) {
       <input class="edit-calories" type="number" min="0" value="${log.calories}" />
       <span class="edit-unit">kcal</span>
     </div>
+    <div class="edit-macros">
+      <label>P <input class="edit-protein" type="number" min="0" step="0.1" value="${log.protein || 0}" />g</label>
+      <label>C <input class="edit-carbs"   type="number" min="0" step="0.1" value="${log.carbs   || 0}" />g</label>
+      <label>F <input class="edit-fat"     type="number" min="0" step="0.1" value="${log.fat     || 0}" />g</label>
+      <label>Fi <input class="edit-fibre"  type="number" min="0" step="0.1" value="${log.fibre   || 0}" />g</label>
+    </div>
     <div class="log-right">
       <button class="save-btn" onclick="saveLog(${id})">Save</button>
       <button class="cancel-btn" onclick="renderLogs()">✕</button>
@@ -191,9 +201,13 @@ function saveLog(id) {
   if (!entry) return;
   const food     = entry.querySelector('.edit-food').value.trim();
   const calories = parseInt(entry.querySelector('.edit-calories').value, 10);
+  const protein  = parseFloat(entry.querySelector('.edit-protein').value) || 0;
+  const carbs    = parseFloat(entry.querySelector('.edit-carbs').value)   || 0;
+  const fat      = parseFloat(entry.querySelector('.edit-fat').value)     || 0;
+  const fibre    = parseFloat(entry.querySelector('.edit-fibre').value)   || 0;
   if (!food || isNaN(calories) || calories < 0) return;
 
-  const logs = getLogs().map(l => l.id === id ? { ...l, food, calories } : l);
+  const logs = getLogs().map(l => l.id === id ? { ...l, food, calories, protein, carbs, fat, fibre } : l);
   saveLogs(logs);
   renderLogs();
 }
@@ -204,9 +218,18 @@ function renderLogs() {
   const dayLogs = getLogs()
     .filter(l => new Date(l.timestamp).toDateString() === selStr)
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-  const total   = dayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
+  const total    = dayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
+  const totProt   = dayLogs.reduce((sum, l) => sum + (l.protein  || 0), 0);
+  const totCarbs  = dayLogs.reduce((sum, l) => sum + (l.carbs    || 0), 0);
+  const totFat    = dayLogs.reduce((sum, l) => sum + (l.fat      || 0), 0);
+  const totFibre  = dayLogs.reduce((sum, l) => sum + (l.fibre    || 0), 0);
 
   totalCal.textContent = total.toLocaleString();
+  const fmt = v => Math.round(v);
+  document.getElementById('total-protein').textContent = fmt(totProt);
+  document.getElementById('total-carbs').textContent   = fmt(totCarbs);
+  document.getElementById('total-fat').textContent     = fmt(totFat);
+  document.getElementById('total-fibre').textContent   = fmt(totFibre);
   updateDayNav();
 
   if (dayLogs.length === 0) {
@@ -217,11 +240,21 @@ function renderLogs() {
 
   logList.innerHTML = dayLogs.map(entry => {
     const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const p = Math.round(entry.protein || 0);
+    const c = Math.round(entry.carbs   || 0);
+    const f = Math.round(entry.fat     || 0);
+    const fi= Math.round(entry.fibre   || 0);
     return `
       <div class="log-entry" data-id="${entry.id}">
-        <div>
+        <div class="log-left">
           <div class="log-food">${escapeHtml(entry.food)}</div>
           <div class="log-time">${time}</div>
+          <div class="log-macros">
+            <span><span class="macro-p">P</span> ${p}g</span>
+            <span><span class="macro-c">C</span> ${c}g</span>
+            <span><span class="macro-f">F</span> ${f}g</span>
+            <span><span class="macro-fi">Fi</span> ${fi}g</span>
+          </div>
         </div>
         <div class="log-right">
           <div class="log-calories">${entry.calories} <span>kcal</span></div>
@@ -231,20 +264,64 @@ function renderLogs() {
       </div>`;
   }).join('');
 
-  renderChart(dayLogs);
+  renderCharts(dayLogs);
 }
 
 // ── CHART ───────────────────────────────────────────────────────────────────
-function renderChart(dayLogs) {
-  const canvas = document.getElementById('cal-chart');
-  if (!canvas) return;
+const MACRO_COLOURS = {
+  calories: { line: '#22c55e', fill: 'rgba(34,197,94,0.12)' },
+  protein:  { line: '#60a5fa', fill: 'rgba(96,165,250,0.12)' },
+  carbs:    { line: '#fbbf24', fill: 'rgba(251,191,36,0.12)'  },
+  fat:      { line: '#f87171', fill: 'rgba(248,113,113,0.12)' },
+  fibre:    { line: '#a78bfa', fill: 'rgba(167,139,250,0.12)' },
+};
 
-  if (dayLogs.length < 2) { canvas.style.display = 'none'; return; }
+// General adult daily targets — persisted in localStorage so the user can edit them
+const TARGET_DEFAULTS = { calories: 2000, protein: 50, carbs: 260, fat: 70, fibre: 30 };
+let DAILY_TARGETS = Object.assign({}, TARGET_DEFAULTS,
+  JSON.parse(localStorage.getItem('guesstaimate_targets') || 'null'));
+
+function openTargets() {
+  document.getElementById('t-calories').value = DAILY_TARGETS.calories;
+  document.getElementById('t-protein').value  = DAILY_TARGETS.protein;
+  document.getElementById('t-carbs').value    = DAILY_TARGETS.carbs;
+  document.getElementById('t-fat').value      = DAILY_TARGETS.fat;
+  document.getElementById('t-fibre').value    = DAILY_TARGETS.fibre;
+  document.getElementById('targets-overlay').classList.add('open');
+  document.getElementById('targets-dialog').classList.add('open');
+}
+
+function closeTargets() {
+  document.getElementById('targets-overlay').classList.remove('open');
+  document.getElementById('targets-dialog').classList.remove('open');
+}
+
+function saveTargets() {
+  const parse = (id, fallback) => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? fallback : v; };
+  DAILY_TARGETS = {
+    calories: parse('t-calories', TARGET_DEFAULTS.calories),
+    protein:  parse('t-protein',  TARGET_DEFAULTS.protein),
+    carbs:    parse('t-carbs',    TARGET_DEFAULTS.carbs),
+    fat:      parse('t-fat',      TARGET_DEFAULTS.fat),
+    fibre:    parse('t-fibre',    TARGET_DEFAULTS.fibre),
+  };
+  localStorage.setItem('guesstaimate_targets', JSON.stringify(DAILY_TARGETS));
+  closeTargets();
+  renderLogs(); // redraw charts with new targets
+}
+
+/**
+ * Draw one or more cumulative lines on `canvas`.
+ * series: [{ label, colour: {line, fill}, values: [number], target?: number }]
+ * timestamps: [Date]  (same length as values arrays)
+ */
+function drawCumulativeChart(canvas, timestamps, series, unit) {
+  if (!canvas || timestamps.length < 2) { canvas.style.display = 'none'; return; }
   canvas.style.display = 'block';
 
   const dpr = window.devicePixelRatio || 1;
-  const W   = canvas.offsetWidth  || canvas.parentElement.clientWidth;
-  const H   = 140;
+  const W   = canvas.offsetWidth || canvas.parentElement.clientWidth;
+  const H   = 150;
   canvas.width  = W * dpr;
   canvas.height = H * dpr;
   canvas.style.height = H + 'px';
@@ -252,87 +329,163 @@ function renderChart(dayLogs) {
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
 
-  const PAD  = { top: 12, right: 16, bottom: 28, left: 48 };
-  const cW   = W - PAD.left - PAD.right;
-  const cH   = H - PAD.top  - PAD.bottom;
-
-  // Build cumulative series
-  let cum = 0;
-  const points = dayLogs.map(l => {
-    cum += l.calories || 0;
-    return { t: new Date(l.timestamp), cal: cum, label: l.food };
-  });
-
-  const minT  = points[0].t.getTime();
-  const maxT  = points[points.length - 1].t.getTime();
-  const maxCal = points[points.length - 1].cal;
-  const tRange = maxT - minT || 1;
-
-  const xOf = t  => PAD.left + ((t - minT) / tRange) * cW;
-  const yOf = c  => PAD.top  + cH - (c / (maxCal * 1.15)) * cH;
-
-  // Colours from CSS vars (approximated for canvas)
-  const GREEN  = '#22c55e';
   const MUTED  = '#94a3b8';
   const BORDER = '#334155';
+  const PAD    = { top: 12, right: 48, bottom: 28, left: 48 }; // right pad for target labels
+  const cW     = W - PAD.left - PAD.right;
+  const cH     = H - PAD.top  - PAD.bottom;
 
-  // Grid lines
+  const times  = timestamps.map(t => t.getTime());
+  const minT   = times[0];
+  const maxT   = times[times.length - 1];
+  const tRange = maxT - minT || 1;
+
+  // Cumulative totals per series
+  const cumSeries = series.map(s => {
+    let acc = 0;
+    return s.values.map(v => { acc += v || 0; return acc; });
+  });
+
+  // Scale y-axis to fit both data AND targets
+  const dataMax   = Math.max(...cumSeries.map(cum => cum[cum.length - 1]));
+  const targetMax = Math.max(0, ...series.map(s => s.target || 0));
+  const overallMax = Math.max(dataMax, targetMax);
+
+  const xOf = t => PAD.left + ((t - minT) / tRange) * cW;
+  const yOf = v => PAD.top  + cH - (v / (overallMax * 1.15 || 1)) * cH;
+
+  // Grid lines (left axis)
   ctx.strokeStyle = BORDER;
   ctx.lineWidth   = 1;
-  const steps = 3;
-  for (let i = 0; i <= steps; i++) {
-    const v = Math.round((maxCal * 1.15 / steps) * i);
+  for (let i = 0; i <= 3; i++) {
+    const v = Math.round((overallMax * 1.15 / 3) * i);
     const y = yOf(v);
     ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
-    ctx.fillStyle   = MUTED;
-    ctx.font        = '10px system-ui,sans-serif';
-    ctx.textAlign   = 'right';
-    ctx.fillText(v.toLocaleString(), PAD.left - 6, y + 3);
+    ctx.fillStyle = MUTED;
+    ctx.font      = '10px system-ui,sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(v + (unit ? unit : ''), PAD.left - 6, y + 3);
   }
 
   // X-axis time labels
   ctx.fillStyle = MUTED;
   ctx.textAlign = 'center';
-  points.forEach(p => {
-    const x   = xOf(p.t.getTime());
-    const lbl = p.t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    ctx.fillText(lbl, x, H - PAD.bottom + 14);
+  timestamps.forEach((t, i) => {
+    const lbl = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    ctx.fillText(lbl, xOf(times[i]), H - PAD.bottom + 14);
   });
 
-  // Fill under line
-  ctx.beginPath();
-  ctx.moveTo(xOf(minT), yOf(0));
-  points.forEach(p => ctx.lineTo(xOf(p.t.getTime()), yOf(p.cal)));
-  ctx.lineTo(xOf(maxT), yOf(0));
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(34,197,94,0.12)';
-  ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = GREEN;
-  ctx.lineWidth   = 2;
-  ctx.lineJoin    = 'round';
-  points.forEach((p, i) => {
-    const x = xOf(p.t.getTime()), y = yOf(p.cal);
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.stroke();
-
-  // Dots + tooltip-style labels
-  points.forEach(p => {
-    const x = xOf(p.t.getTime()), y = yOf(p.cal);
-    ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
-    ctx.fillStyle   = GREEN;
-    ctx.fill();
-    ctx.strokeStyle = '#0f172a';
+  // Target reference lines (drawn before data so data renders on top)
+  series.forEach(s => {
+    if (!s.target) return;
+    const y = yOf(s.target);
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = s.colour.line;
     ctx.lineWidth   = 1.5;
+    ctx.globalAlpha = 0.7;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.restore();
+    // Right-side label
+    ctx.fillStyle = s.colour.line;
+    ctx.font      = series.length > 1 ? 'bold 8px system-ui,sans-serif' : 'bold 10px system-ui,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 0.85;
+    const lbl = series.length > 1 ? s.label[0] : s.target.toLocaleString() + (unit || '');
+    ctx.fillText(lbl, PAD.left + cW + 4, y + 4);
+    ctx.globalAlpha = 1;
+  });
+
+  // Draw each data series
+  series.forEach((s, si) => {
+    const cum    = cumSeries[si];
+    const colour = s.colour;
+
+    // Fill
+    ctx.beginPath();
+    ctx.moveTo(xOf(times[0]), yOf(0));
+    cum.forEach((v, i) => ctx.lineTo(xOf(times[i]), yOf(v)));
+    ctx.lineTo(xOf(times[times.length - 1]), yOf(0));
+    ctx.closePath();
+    ctx.fillStyle = colour.fill;
+    ctx.fill();
+
+    // Line
+    ctx.beginPath();
+    ctx.strokeStyle = colour.line;
+    ctx.lineWidth   = 2;
+    ctx.lineJoin    = 'round';
+    cum.forEach((v, i) => { const x = xOf(times[i]), y = yOf(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
     ctx.stroke();
-    ctx.fillStyle  = GREEN;
-    ctx.font       = 'bold 10px system-ui,sans-serif';
-    ctx.textAlign  = 'center';
-    ctx.fillText(p.cal.toLocaleString(), x, y - 8);
+
+    // Dots + value labels (only for single-series charts to avoid clutter)
+    if (series.length === 1) {
+      cum.forEach((v, i) => {
+        const x = xOf(times[i]), y = yOf(v);
+        ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = colour.line; ctx.fill();
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.fillStyle = colour.line;
+        ctx.font = 'bold 10px system-ui,sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(v.toLocaleString(), x, y - 8);
+      });
+    } else {
+      // Just dots for multi-series
+      cum.forEach((v, i) => {
+        const x = xOf(times[i]), y = yOf(v);
+        ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = colour.line; ctx.fill();
+        ctx.strokeStyle = '#0f172a'; ctx.lineWidth = 1; ctx.stroke();
+      });
+    }
+  });
+
+  // Legend for multi-series
+  if (series.length > 1) {
+    const legendX = PAD.left;
+    let   legendY = PAD.top + 2;
+    series.forEach(s => {
+      ctx.fillStyle = s.colour.line;
+      ctx.font      = 'bold 9px system-ui,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(s.label, legendX, legendY);
+      legendY += 11;
+    });
+  }
+}
+
+function renderCharts(dayLogs) {
+  const timestamps = dayLogs.map(l => new Date(l.timestamp));
+
+  // Calorie chart
+  drawCumulativeChart(
+    document.getElementById('cal-chart'),
+    timestamps,
+    [{ label: 'kcal', colour: MACRO_COLOURS.calories, values: dayLogs.map(l => l.calories || 0), target: DAILY_TARGETS.calories }],
+    ''
+  );
+
+  // Individual macro charts (2×2 grid)
+  const macros = [
+    { id: 'chart-protein', label: 'Protein', key: 'protein', colour: MACRO_COLOURS.protein },
+    { id: 'chart-carbs',   label: 'Carbs',   key: 'carbs',   colour: MACRO_COLOURS.carbs   },
+    { id: 'chart-fat',     label: 'Fat',     key: 'fat',     colour: MACRO_COLOURS.fat     },
+    { id: 'chart-fibre',   label: 'Fibre',   key: 'fibre',   colour: MACRO_COLOURS.fibre   },
+  ];
+  macros.forEach(m => {
+    drawCumulativeChart(
+      document.getElementById(m.id),
+      timestamps,
+      [{ label: m.label, colour: m.colour, values: dayLogs.map(l => l[m.key] || 0), target: DAILY_TARGETS[m.key] }],
+      'g'
+    );
+  });
+
+  // Show/hide the chart sections based on whether there's data
+  const hasSeries = timestamps.length >= 2;
+  document.querySelectorAll('.chart-section').forEach(el => {
+    el.style.display = hasSeries ? '' : 'none';
   });
 }
 
