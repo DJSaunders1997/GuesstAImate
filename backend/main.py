@@ -75,14 +75,14 @@ async def log_requests(request: Request, call_next):
 SYSTEM_PROMPT = (
     "You are a nutrition assistant. The user will describe what they ate in natural language. "
     "Split the description into individual food items or meals. Each distinct item or meal gets its own entry. "
-    "Estimate calories for each item using rough but reasonable estimates - "
-    "consistency matters more than precision (e.g. ~100 kcal for a slice of bread). "
+    "For each item estimate: calories, protein (g), carbs (g), fat (g), fibre (g). "
+    "Use rough but reasonable estimates - consistency matters more than precision. "
     "Also extract any time reference for each item. "
     "If the user mentions a specific time (e.g. 'at 10am', 'at 2:30pm'), return it as HH:MM in 24-hour format. "
     "If the user mentions a meal name with no explicit time, map it: "
     "breakfast=07:30, brunch=10:00, lunch=12:30, afternoon tea=15:30, dinner=18:30, supper=19:30. "
     "If no time is mentioned for an item, return null for its time. "
-    'Return ONLY a valid JSON array: [{"food": "description", "calories": 300, "time": "09:00"}, {"food": "description", "calories": 400, "time": "14:00"}]. '
+    'Return ONLY a valid JSON array: [{"food": "description", "calories": 300, "protein": 10, "carbs": 40, "fat": 8, "fibre": 3, "time": "09:00"}]. '
     "No markdown, no explanation - just the JSON array."
 )
 
@@ -143,7 +143,7 @@ async def track(audio: UploadFile = File(...)):
                 {"role": "user", "content": transcript_text},
             ],
             temperature=0.3,
-            max_tokens=400,
+            max_tokens=600,
         )
 
         raw = completion.choices[0].message.content.strip()
@@ -159,6 +159,10 @@ async def track(audio: UploadFile = File(...)):
             {
                 "food": str(item["food"]),
                 "calories": int(item["calories"]),
+                "protein": float(item.get("protein") or 0),
+                "carbs":   float(item.get("carbs")   or 0),
+                "fat":     float(item.get("fat")     or 0),
+                "fibre":   float(item.get("fibre")   or 0),
                 "time_hint": item.get("time"),  # "HH:MM" or null
             }
             for item in result

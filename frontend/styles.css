@@ -32,6 +32,16 @@ header h1 .ai { color: var(--primary); }
 #daily-total { margin-top: 0.35rem; font-size: 0.95rem; color: var(--muted); }
 #daily-total strong { color: var(--primary); font-size: 1.15rem; }
 
+#macro-totals {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+#macro-totals strong { color: var(--text); }
+
 /* ── RECORD SECTION ─────────────────────────────── */
 .record-section {
   display: flex;
@@ -154,10 +164,12 @@ header h1 .ai { color: var(--primary); }
   padding: 0.85rem 1rem;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   animation: slideIn 0.25s ease;
 }
+
+.log-left { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 @keyframes slideIn {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: translateY(0);    }
@@ -165,6 +177,20 @@ header h1 .ai { color: var(--primary); }
 
 .log-food { font-size: 0.95rem; font-weight: 500; }
 .log-time { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+.log-macros {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* Macro colour labels */
+.macro-p  { color: #60a5fa; font-weight: 600; } /* blue  - protein */
+.macro-c  { color: #fbbf24; font-weight: 600; } /* amber - carbs   */
+.macro-f  { color: #f87171; font-weight: 600; } /* red   - fat     */
+.macro-fi { color: #a78bfa; font-weight: 600; } /* violet- fibre   */
 
 .log-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
 
@@ -200,6 +226,30 @@ header h1 .ai { color: var(--primary); }
   align-items: center;
   gap: 0.5rem;
   flex: 1;
+}
+
+.edit-macros {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.edit-macros label {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.edit-macros input {
+  width: 3.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 0.2rem 0.3rem;
+  text-align: right;
 }
 .edit-food {
   flex: 1;
@@ -251,11 +301,117 @@ header h1 .ai { color: var(--primary); }
   font-size: 0.95rem;
 }
 
-#cal-chart {
+#cal-chart, #chart-protein, #chart-carbs, #chart-fat, #chart-fibre {
   display: none;
   width: 100%;
-  margin-top: 1.25rem;
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
+
+/* ── CHART SECTIONS ─────────────────────────────── */
+.chart-section {
+  margin-top: 1.25rem;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+#targets-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s;
+}
+#targets-btn:hover { color: var(--primary); }
+
+.macro-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+
+/* ── TARGETS DIALOG ─────────────────────────────── */
+#targets-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+}
+#targets-overlay.open { display: block; }
+
+#targets-dialog {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  min-width: 260px;
+  gap: 0.8rem;
+  flex-direction: column;
+}
+#targets-dialog.open { display: flex; }
+
+#targets-dialog h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+#targets-dialog label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+#targets-dialog label span { min-width: 4.5rem; font-weight: 600; }
+#targets-dialog input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 0.3rem 0.5rem;
+  text-align: right;
+  max-width: 5rem;
+}
+
+.targets-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+.targets-actions button {
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+}
+.targets-actions button:hover { background: var(--primary-dark); }
+
+.macro-cal { color: #22c55e; font-weight: 600; }
