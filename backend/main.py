@@ -8,7 +8,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
@@ -40,7 +40,9 @@ async def startup_event():
     logger.info("=" * 50)
     logger.info("GuesstAImate API starting up")
     if not _api_key or _api_key.startswith("sk-your"):
-        logger.warning("OPENAI_API_KEY is not set or is still the placeholder — requests will fail!")
+        logger.warning(
+            "OPENAI_API_KEY is not set or is still the placeholder — requests will fail!"
+        )
     else:
         logger.info("OPENAI_API_KEY loaded (%s...%s)", _api_key[:8], _api_key[-4:])
     logger.info("=" * 50)
@@ -53,12 +55,22 @@ async def log_requests(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception:
-        logger.exception("Unhandled exception during %s %s", request.method, request.url.path)
-        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+        logger.exception(
+            "Unhandled exception during %s %s", request.method, request.url.path
+        )
+        return JSONResponse(
+            status_code=500, content={"detail": "Internal server error"}
+        )
     elapsed = (time.perf_counter() - start) * 1000
-    logger.info("<-- %s %s  %d  (%.0f ms)", request.method, request.url.path,
-                response.status_code, elapsed)
+    logger.info(
+        "<-- %s %s  %d  (%.0f ms)",
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed,
+    )
     return response
+
 
 SYSTEM_PROMPT = (
     "You are a nutrition assistant. The user will describe what they ate in natural language. "
@@ -105,13 +117,17 @@ async def track(audio: UploadFile = File(...)):
 
         # Step 1: Speech → Text
         with open(tmp_path, "rb") as f:
-            transcript_obj = client.audio.transcriptions.create(model="whisper-1", file=f)
+            transcript_obj = client.audio.transcriptions.create(
+                model="whisper-1", file=f
+            )
 
         transcript_text = transcript_obj.text.strip()
         logger.info("Whisper transcript: %s", transcript_text)
 
         if not transcript_text:
-            raise HTTPException(status_code=422, detail="Could not understand audio. Please try again.")
+            raise HTTPException(
+                status_code=422, detail="Could not understand audio. Please try again."
+            )
 
         # Step 2: Text → {food, calories}
         completion = client.chat.completions.create(
@@ -137,7 +153,10 @@ async def track(audio: UploadFile = File(...)):
 
     except json.JSONDecodeError:
         logger.error("Failed to parse GPT JSON: %s", locals().get("raw", "<not set>"))
-        raise HTTPException(status_code=500, detail="AI returned an unexpected format. Please try again.")
+        raise HTTPException(
+            status_code=500,
+            detail="AI returned an unexpected format. Please try again.",
+        )
     except KeyError as exc:
         raise HTTPException(status_code=500, detail=f"AI response missing field: {exc}")
     finally:
