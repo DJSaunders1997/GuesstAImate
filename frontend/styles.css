@@ -303,7 +303,6 @@ header h1 .ai { color: var(--primary); }
 }
 
 #cal-chart, #chart-protein, #chart-carbs, #chart-fat, #chart-fibre {
-  display: none;
   width: 100%;
   border-radius: 8px;
   background: var(--surface);
