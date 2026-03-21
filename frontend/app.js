@@ -230,6 +230,110 @@ function renderLogs() {
         </div>
       </div>`;
   }).join('');
+
+  renderChart(dayLogs);
+}
+
+// ── CHART ───────────────────────────────────────────────────────────────────
+function renderChart(dayLogs) {
+  const canvas = document.getElementById('cal-chart');
+  if (!canvas) return;
+
+  if (dayLogs.length < 2) { canvas.style.display = 'none'; return; }
+  canvas.style.display = 'block';
+
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.offsetWidth  || canvas.parentElement.clientWidth;
+  const H   = 140;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD  = { top: 12, right: 16, bottom: 28, left: 48 };
+  const cW   = W - PAD.left - PAD.right;
+  const cH   = H - PAD.top  - PAD.bottom;
+
+  // Build cumulative series
+  let cum = 0;
+  const points = dayLogs.map(l => {
+    cum += l.calories || 0;
+    return { t: new Date(l.timestamp), cal: cum, label: l.food };
+  });
+
+  const minT  = points[0].t.getTime();
+  const maxT  = points[points.length - 1].t.getTime();
+  const maxCal = points[points.length - 1].cal;
+  const tRange = maxT - minT || 1;
+
+  const xOf = t  => PAD.left + ((t - minT) / tRange) * cW;
+  const yOf = c  => PAD.top  + cH - (c / (maxCal * 1.15)) * cH;
+
+  // Colours from CSS vars (approximated for canvas)
+  const GREEN  = '#22c55e';
+  const MUTED  = '#94a3b8';
+  const BORDER = '#334155';
+
+  // Grid lines
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth   = 1;
+  const steps = 3;
+  for (let i = 0; i <= steps; i++) {
+    const v = Math.round((maxCal * 1.15 / steps) * i);
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillStyle   = MUTED;
+    ctx.font        = '10px system-ui,sans-serif';
+    ctx.textAlign   = 'right';
+    ctx.fillText(v.toLocaleString(), PAD.left - 6, y + 3);
+  }
+
+  // X-axis time labels
+  ctx.fillStyle = MUTED;
+  ctx.textAlign = 'center';
+  points.forEach(p => {
+    const x   = xOf(p.t.getTime());
+    const lbl = p.t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    ctx.fillText(lbl, x, H - PAD.bottom + 14);
+  });
+
+  // Fill under line
+  ctx.beginPath();
+  ctx.moveTo(xOf(minT), yOf(0));
+  points.forEach(p => ctx.lineTo(xOf(p.t.getTime()), yOf(p.cal)));
+  ctx.lineTo(xOf(maxT), yOf(0));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(34,197,94,0.12)';
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = GREEN;
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  points.forEach((p, i) => {
+    const x = xOf(p.t.getTime()), y = yOf(p.cal);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots + tooltip-style labels
+  points.forEach(p => {
+    const x = xOf(p.t.getTime()), y = yOf(p.cal);
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle   = GREEN;
+    ctx.fill();
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+    ctx.fillStyle  = GREEN;
+    ctx.font       = 'bold 10px system-ui,sans-serif';
+    ctx.textAlign  = 'center';
+    ctx.fillText(p.cal.toLocaleString(), x, y - 8);
+  });
 }
 
 function escapeHtml(str) {

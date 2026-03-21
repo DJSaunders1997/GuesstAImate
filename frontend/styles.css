@@ -250,3 +250,12 @@ header h1 .ai { color: var(--primary); }
   color: var(--muted);
   font-size: 0.95rem;
 }
+
+#cal-chart {
+  display: none;
+  width: 100%;
+  margin-top: 1.25rem;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
