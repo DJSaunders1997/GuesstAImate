@@ -1,5 +1,5 @@
 # GuesstAImate
-> Voice-powered AI calorie tracker — speak what you ate, get an instant estimate.
+> Voice-powered AI calorie tracker - speak what you ate, get an instant estimate.
 
 ## Philosophy: Consistency Over Perfection
 
@@ -7,7 +7,7 @@ this is an easy wasy to track your callories to help be healthy and weightloss.
 
 Instread of having to open something like myfitnesspal, having to go thorugh lots of forms and inupts and entering the exact gram amount we can use natural langauge instead!
 
-Apps like MyFitnessPal cause tracking fatigue because of constant weighing, searching, and form-filling. GuesstAImate removes all of that. You speak one natural sentence — *"I had a bowl of pasta and a light salad"* — and the AI logs a rough-but-reasonable estimate immediately. The goal is to build a sustainable daily habit, not to achieve laboratory-grade accuracy.
+Apps like MyFitnessPal cause tracking fatigue because of constant weighing, searching, and form-filling. GuesstAImate removes all of that. You speak one natural sentence - *"I had a bowl of pasta and a light salad"* - and the AI logs a rough-but-reasonable estimate immediately. The goal is to build a sustainable daily habit, not to achieve laboratory-grade accuracy.
 
 ---
 
@@ -141,7 +141,7 @@ Accepts a multipart audio file, returns a calorie estimate.
 ```
 
 ### `GET /health`
-Returns `{"status": "ok"}` — used to verify the container is running.
+Returns `{"status": "ok"}` - used to verify the container is running.
 
 ---
 
@@ -150,7 +150,7 @@ Returns `{"status": "ok"}` — used to verify the container is running.
 1. User opens `https://yourusername.github.io/GuesstAImate`
 2. Taps the large **🎙️ Record** button and says: *"I had two eggs and a slice of toast"*
 3. App shows **"Processing…"** while Azure processes the audio
-4. App instantly adds **"Eggs and Toast — 240 kcal"** to the day's log
-5. Data is saved in the browser (`localStorage`) — no account needed
+4. App instantly adds **"Eggs and Toast - 240 kcal"** to the day's log
+5. Data is saved in the browser (`localStorage`) - no account needed
 6. At the end of the week, user clicks **Export CSV** to save to a spreadsheet
 

@@ -78,9 +78,9 @@ async function processAudio() {
       throw new Error(err.detail || `Server error (${res.status})`);
     }
 
-    const { food, calories, transcript } = await res.json();
-    addLog(food, calories, transcript);
-    setStatus(`Logged: ${food} — ${calories} kcal`, 'success');
+    const { food, calories, transcript, time_hint } = await res.json();
+    addLog(food, calories, transcript, time_hint);
+    setStatus(`Logged: ${food} - ${calories} kcal`, 'success');
   } catch (err) {
     setStatus(`Error: ${err.message}`, 'error');
   } finally {
@@ -100,9 +100,18 @@ function saveLogs(logs) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
 }
 
-function addLog(food, calories, transcript) {
+function addLog(food, calories, transcript, timeHint) {
   const logs = getLogs();
-  logs.unshift({ id: Date.now(), timestamp: new Date().toISOString(), food, calories, transcript: transcript || '' });
+  let timestamp;
+  if (timeHint) {
+    const [hours, minutes] = timeHint.split(':').map(Number);
+    const d = new Date();
+    d.setHours(hours, minutes, 0, 0);
+    timestamp = d.toISOString();
+  } else {
+    timestamp = new Date().toISOString();
+  }
+  logs.unshift({ id: Date.now(), timestamp, food, calories, transcript: transcript || '' });
   saveLogs(logs);
   renderLogs();
 }
@@ -121,7 +130,7 @@ function renderLogs() {
   totalCal.textContent = total.toLocaleString();
 
   if (todayLogs.length === 0) {
-    logList.innerHTML = '<div id="empty-state">No entries yet today — tap the button above and tell me what you ate!</div>';
+    logList.innerHTML = '<div id="empty-state">No entries yet today - tap the button above and tell me what you ate!</div>';
     return;
   }
 

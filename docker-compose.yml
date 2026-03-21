@@ -1,5 +1,5 @@
 services:
-  # FastAPI backend — Whisper + GPT-4o-mini calorie tracker
+  # FastAPI backend - Whisper + GPT-4o-mini calorie tracker
   backend:
     build:
       context: ./backend
@@ -26,6 +26,4 @@ services:
 #    API docs:      http://localhost:8000/docs
 # 4. Quick check:   curl http://localhost:8000/health
 #
-# NOTE: For docker compose, BACKEND_URL in frontend/index.html must be
-# set to 'http://localhost:8000' before building the frontend image.
-# Leave it as '' (empty) when running via `uv run uvicorn` locally.
+# The frontend auto-detects localhost and points to http://localhost:8000.
