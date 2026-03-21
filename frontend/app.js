@@ -387,6 +387,7 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
   const cH     = H - PAD.top  - PAD.bottom;
 
   const hasData = timestamps.length > 0;
+  if (!hasData) { canvas.style.display = 'none'; return; }
   const single  = timestamps.length === 1;
 
   // X range: use data if available, otherwise span midnight→midnight for the viewed day
@@ -550,7 +551,7 @@ function renderCharts(dayLogs) {
   });
 
   // Show/hide the chart sections based on whether there's data
-  const hasSeries = timestamps.length >= 2;
+  const hasSeries = timestamps.length >= 1;
   document.querySelectorAll('.chart-section').forEach(el => {
     el.style.display = hasSeries ? '' : 'none';
   });
