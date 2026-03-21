@@ -1,61 +1,94 @@
 # GuesstAImate
-> Voice-powered AI calorie tracker - speak what you ate, get an instant estimate.
+> Speak what you ate. Get an instant calorie estimate. No forms, no faff.
 
-## Philosophy: Consistency Over Perfection
-
-this is an easy wasy to track your callories to help be healthy and weightloss.
-
-Instread of having to open something like myfitnesspal, having to go thorugh lots of forms and inupts and entering the exact gram amount we can use natural langauge instead!
-
-Apps like MyFitnessPal cause tracking fatigue because of constant weighing, searching, and form-filling. GuesstAImate removes all of that. You speak one natural sentence - *"I had a bowl of pasta and a light salad"* - and the AI logs a rough-but-reasonable estimate immediately. The goal is to build a sustainable daily habit, not to achieve laboratory-grade accuracy.
+🌐 **[Try it live →](https://djsaunders1997.github.io/GuesstAImate)**
 
 ---
 
-## How It Works
+## What is it?
 
-```
-User speaks → MediaRecorder captures audio → POST to Azure FastAPI
-→ Whisper-1 transcribes speech → GPT-4o-mini estimates calories
-→ JSON response → Saved to localStorage → Shown instantly on screen
-```
+GuesstAImate is a voice-powered calorie tracker. Instead of opening an app, searching a food database, and entering exact gram weights, you just **speak one sentence** and it does the rest.
+
+> *"I had scrambled eggs on toast and a coffee"* → instantly logged ✅
+
+Apps like MyFitnessPal are great, but they cause tracking fatigue — constant weighing, searching, and form-filling. GuesstAImate is built on a different idea: **a rough estimate you actually log beats a perfect one you don't.**
 
 ---
 
-## Tech Stack
+## What can it do?
+
+- 🎙️ **Voice logging** — tap record, say what you ate, done
+- ✏️ **Manual entry** — prefer to type? Hit the `+` button
+- 🍗 **Macros** — tracks protein, carbs, fat and fibre alongside calories
+- 📅 **Day-by-day history** — flick back through previous days
+- 📈 **Charts** — see your intake build up through the day, with target reference lines
+- ⚙️ **Editable targets** — set your own daily calorie and macro goals
+- 💾 **No account needed** — everything lives in your browser
+
+---
+
+## How does it work?
+
+You tap a button and speak. Your voice is sent to an AI that:
+1. Converts your speech to text (OpenAI Whisper)
+2. Reads the text and estimates the calories and macros for everything you mentioned (GPT-4o-mini)
+3. Sends the results back to your browser, where they're saved locally
+
+The whole thing takes a few seconds. Nothing is stored on a server — your food log lives in your browser.
+
+---
+
+## Example
+
+1. Open the [live site](https://djsaunders1997.github.io/GuesstAImate)
+2. Tap **🎙️** and say: *"I had two eggs and a slice of toast for breakfast"*
+3. The app logs **"Eggs and Toast — 240 kcal · P 14g · C 28g · F 10g · Fi 1g"**
+4. Tap **📅** to browse previous days, or **Export CSV** to save your data
+
+---
+---
+
+## Technical Details
+
+### Architecture
+
+```
+User speaks → MediaRecorder (WebM) → POST /track (FastAPI on Azure)
+→ Whisper-1 transcribes → GPT-4o-mini returns JSON array of food items
+→ Response sent to browser → Rendered + saved to localStorage
+```
+
+### Tech Stack
 
 | Layer | Technology | Hosting |
 |---|---|---|
-| Frontend | Vanilla JS + HTML5 | GitHub Pages |
+| Frontend | Vanilla JS + HTML5 Canvas | GitHub Pages |
 | Backend | FastAPI (Python) | Azure Container Apps |
 | Speech-to-Text | OpenAI Whisper-1 | OpenAI API |
-| NLP / Calories | OpenAI GPT-4o-mini | OpenAI API |
+| NLP / Macros | OpenAI GPT-4o-mini | OpenAI API |
 | Storage | `localStorage` (browser) | Client-side |
 
----
-
-## Project Structure
+### Project Structure
 
 ```
 GuesstAImate/
 ├── frontend/
-│   ├── index.html          # Single-page app (deploy to GitHub Pages)
+│   ├── index.html          # Single-page app
+│   ├── app.js              # All JS — recording, storage, charts, edit/add
+│   ├── styles.css          # Dark theme styles
 │   └── Dockerfile          # Nginx image for local Docker testing
 ├── backend/
-│   ├── main.py             # FastAPI app
-│   ├── pyproject.toml      # Python dependencies (uv)
+│   ├── main.py             # FastAPI app — /track and /health endpoints
+│   ├── pyproject.toml      # Python dependencies (managed with uv)
 │   ├── .env                # Local secrets (never committed)
-│   └── Dockerfile          # Container definition
-├── docker-compose.yml      # Runs frontend + backend together
-├── .github/
-│   └── workflows/
-│       ├── ci_python.yml   # Lint + type-check on backend changes
-│       └── static.yml      # Deploy frontend to GitHub Pages
-└── README.md
+│   └── Dockerfile
+├── docker-compose.yml      # Runs frontend + backend together locally
+└── .github/workflows/
+    ├── ci_python.yml       # Ruff + mypy on backend changes
+    └── static.yml          # Deploy frontend to GitHub Pages on push to main
 ```
 
----
-
-## Local Development
+### Local Development
 
 ```bash
 export OPENAI_API_KEY=sk-...
@@ -66,91 +99,77 @@ docker compose up --build
 |---|---|
 | `http://localhost:8080` | Frontend (nginx) |
 | `http://localhost:8000` | Backend API |
-| `http://localhost:8000/docs` | API docs |
+| `http://localhost:8000/docs` | Auto-generated API docs (Swagger) |
 | `http://localhost:8000/health` | Health check |
 
----
+The frontend auto-detects environment via `window.location.hostname` — `localhost` hits the local Docker backend, any other hostname hits the Azure Container App.
 
-## CI / GitHub Actions
+### Deployment
 
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `ci_python.yml` | Push / PR touching `backend/` | Runs `ruff` linter and `mypy` type-checker |
-| `static.yml` | Push to `main` touching `frontend/` | Deploys `frontend/` to GitHub Pages |
+#### Backend → Azure Container Apps
 
----
-
-## Deployment
-
-### Backend → Azure Container Apps
-
-The backend is deployed to the `container-app-environment` environment in the `ContainerApps` resource group (UK West), alongside GPTeasers.
-
-The image is hosted publicly on GitHub Container Registry (`ghcr.io`).
-
-To rebuild and redeploy after code changes:
+Hosted in the `ContainerApps` resource group (UK West). Image published to GitHub Container Registry (`ghcr.io`).
 
 ```bash
-# 1. Build & push to ghcr.io
-docker buildx build --platform linux/amd64 -t ghcr.io/djsaunders1997/guesstaimate:latest ./backend
+# Build & push
+docker buildx build --platform linux/amd64 \
+  -t ghcr.io/djsaunders1997/guesstaimate:latest ./backend
 docker push ghcr.io/djsaunders1997/guesstaimate:latest
 
-# 2. Update the running container app with the new image
+# Update running container
 az containerapp update \
   --name guesstaimate \
   --resource-group ContainerApps \
   --image ghcr.io/djsaunders1997/guesstaimate:latest
 ```
 
-The live backend URL is: `https://guesstaimate.jollyocean-6818c6e0.ukwest.azurecontainerapps.io`
+Live backend: `https://guesstaimate.jollyocean-6818c6e0.ukwest.azurecontainerapps.io`
 
-> **Scale to Zero**: `--min-replicas 0` means the app costs nothing when idle. It cold-starts on the first request (~2–3 seconds).
+> **Scale to Zero**: `--min-replicas 0` means no cost when idle. Cold-start is ~2–3 s.
 
-### Frontend → GitHub Pages
+#### Frontend → GitHub Pages
 
-The `static.yml` workflow automatically deploys `frontend/` to GitHub Pages on every push to `main`.
+The `static.yml` workflow deploys `frontend/` automatically on every push to `main`.
 
-The frontend auto-detects the environment via `window.location.hostname`:
-- `localhost` / `0.0.0.0` → hits `http://localhost:8000` (local Docker)
-- Any other hostname → hits the Azure Container App URL
+### API Reference
 
----
-
-## Environment Variables (Backend)
-
-| Variable | Description | Example |
-|---|---|---|
-| `OPENAI_API_KEY` | Your OpenAI API key | `sk-...` |
-
----
-
-## API Reference
-
-### `POST /track`
-Accepts a multipart audio file, returns a calorie estimate.
+#### `POST /track`
+Accepts a multipart audio file, returns structured nutrition data.
 
 **Request:** `multipart/form-data` with field `audio` (webm/ogg/wav)
 
 **Response:**
 ```json
 {
-  "food": "Pasta and light salad",
-  "calories": 650,
-  "transcript": "I had a big bowl of pasta and a light salad"
+  "items": [
+    {
+      "food": "Scrambled eggs on toast",
+      "calories": 320,
+      "protein": 18,
+      "carbs": 28,
+      "fat": 12,
+      "fibre": 2,
+      "time_hint": "08:00"
+    }
+  ],
+  "transcript": "I had scrambled eggs on toast for breakfast"
 }
 ```
 
-### `GET /health`
-Returns `{"status": "ok"}` - used to verify the container is running.
+#### `GET /health`
+Returns `{"status": "ok"}` — used by Azure to verify the container is running.
 
----
+### Environment Variables
 
-## Example User Flow
+| Variable | Description |
+|---|---|
+| `OPENAI_API_KEY` | Your OpenAI API key (`sk-...`) |
 
-1. User opens `https://yourusername.github.io/GuesstAImate`
-2. Taps the large **🎙️ Record** button and says: *"I had two eggs and a slice of toast"*
-3. App shows **"Processing…"** while Azure processes the audio
-4. App instantly adds **"Eggs and Toast - 240 kcal"** to the day's log
-5. Data is saved in the browser (`localStorage`) - no account needed
-6. At the end of the week, user clicks **Export CSV** to save to a spreadsheet
+### CI / GitHub Actions
+
+| Workflow | Trigger | What it does |
+|---|---|---|
+| `ci_python.yml` | Push / PR on `backend/` | Runs `ruff` linter and `mypy` type-checker |
+| `static.yml` | Push to `main` on `frontend/` | Deploys to GitHub Pages |
+
 
