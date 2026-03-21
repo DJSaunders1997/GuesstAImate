@@ -84,31 +84,35 @@ docker compose up --build
 
 ### Backend → Azure Container Apps
 
-```bash
-# 1. Build & push the container
-az acr build --registry <your-registry> --image guesstaimate-api:latest ./backend
+The backend is deployed to the `container-app-environment` environment in the `ContainerApps` resource group (UK West), alongside GPTeasers.
 
-# 2. Create a Container App (scale to zero to save money)
-az containerapp create \
-  --name guesstaimate-api \
-  --resource-group <your-rg> \
-  --image <your-registry>.azurecr.io/guesstaimate-api:latest \
-  --min-replicas 0 \
-  --max-replicas 3 \
-  --target-port 80 \
-  --ingress external \
-  --secrets openai-key=<your-openai-key> \
-  --env-vars OPENAI_API_KEY=secretref:openai-key \
-             ALLOWED_ORIGINS=https://<your-github-username>.github.io
+The image is hosted publicly on GitHub Container Registry (`ghcr.io`).
+
+To rebuild and redeploy after code changes:
+
+```bash
+# 1. Build & push to ghcr.io
+docker buildx build --platform linux/amd64 -t ghcr.io/djsaunders1997/guesstaimate:latest ./backend
+docker push ghcr.io/djsaunders1997/guesstaimate:latest
+
+# 2. Update the running container app with the new image
+az containerapp update \
+  --name guesstaimate \
+  --resource-group ContainerApps \
+  --image ghcr.io/djsaunders1997/guesstaimate:latest
 ```
 
-> **Scale to Zero**: Setting `--min-replicas 0` means the app costs nothing when idle. It cold-starts on the first request (~2–3 seconds).
+The live backend URL is: `https://guesstaimate.jollyocean-6818c6e0.ukwest.azurecontainerapps.io`
+
+> **Scale to Zero**: `--min-replicas 0` means the app costs nothing when idle. It cold-starts on the first request (~2–3 seconds).
 
 ### Frontend → GitHub Pages
 
-1. Push `frontend/index.html` to a GitHub repo.
-2. Go to **Settings → Pages → Source** and set it to the branch/folder containing `index.html`.
-3. Update `BACKEND_URL` in `index.html` to your Azure Container App URL before pushing.
+The `static.yml` workflow automatically deploys `frontend/` to GitHub Pages on every push to `main`.
+
+The frontend auto-detects the environment via `window.location.hostname`:
+- `localhost` / `0.0.0.0` → hits `http://localhost:8000` (local Docker)
+- Any other hostname → hits the Azure Container App URL
 
 ---
 
