@@ -112,9 +112,14 @@ async function processAudio() {
       throw new Error(err.detail || `Server error (${res.status})`);
     }
 
-    const { food, calories, transcript, time_hint } = await res.json();
-    addLog(food, calories, transcript, time_hint);
-    setStatus(`Logged: ${food} - ${calories} kcal`, 'success');
+    const { items, transcript } = await res.json();
+    items.forEach(({ food, calories, time_hint }) => addLog(food, calories, transcript, time_hint));
+    if (items.length === 1) {
+      setStatus(`Logged: ${items[0].food} - ${items[0].calories} kcal`, 'success');
+    } else {
+      const total = items.reduce((s, i) => s + i.calories, 0);
+      setStatus(`Logged ${items.length} items — ${total} kcal total`, 'success');
+    }
   } catch (err) {
     setStatus(`Error: ${err.message}`, 'error');
   } finally {
@@ -196,7 +201,9 @@ function saveLog(id) {
 // ── RENDER ──────────────────────────────────────────────────────────────────
 function renderLogs() {
   const selStr  = selectedDate.toDateString();
-  const dayLogs = getLogs().filter(l => new Date(l.timestamp).toDateString() === selStr);
+  const dayLogs = getLogs()
+    .filter(l => new Date(l.timestamp).toDateString() === selStr)
+    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   const total   = dayLogs.reduce((sum, l) => sum + (l.calories || 0), 0);
 
   totalCal.textContent = total.toLocaleString();
@@ -209,7 +216,7 @@ function renderLogs() {
   }
 
   logList.innerHTML = dayLogs.map(entry => {
-    const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
     return `
       <div class="log-entry" data-id="${entry.id}">
         <div>
