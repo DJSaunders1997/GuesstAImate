@@ -103,15 +103,20 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
 
   const hasData = timestamps.length > 0;
   if (!hasData) { canvas.style.display = 'none'; return; }
-  const single = timestamps.length === 1;
 
-  // X range: span the timestamps when multiple entries exist.
-  const ms     = timestamps.map(t => t.getTime());
-  const minT   = ms[0];
-  const maxT   = ms[ms.length - 1];
-  const tRange = maxT - minT || 1;
+  // X range: always show 07:00–24:00 so the axis is stable across entries.
+  // Extend the left edge earlier only if an entry falls before 07:00.
+  const dayBase  = new Date(timestamps[0]);
+  dayBase.setHours(0, 0, 0, 0);
+  const default07 = new Date(dayBase); default07.setHours(7,  0, 0, 0);
+  const default24 = new Date(dayBase); default24.setHours(24, 0, 0, 0);
+
+  const ms    = timestamps.map(t => t.getTime());
+  const minT  = Math.min(default07.getTime(), ...ms);
+  const maxT  = default24.getTime();
+  const tRange = maxT - minT;
   const times  = ms;
-  const xOf    = t => single ? PAD.left + cW / 2 : PAD.left + ((t - minT) / tRange) * cW;
+  const xOf    = t => PAD.left + ((t - minT) / tRange) * cW;
 
   // Cumulative totals per series.
   const cumSeries = series.map(s => {
@@ -138,12 +143,17 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     ctx.fillText(v + (unit || ''), PAD.left - 6, y + 3);
   }
 
-  // X-axis time labels.
+  // X-axis: fixed hour markers across the 07:00–24:00 window.
   ctx.fillStyle = MUTED;
   ctx.textAlign = 'center';
-  timestamps.forEach((t, i) => {
-    const lbl = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    ctx.fillText(lbl, xOf(times[i]), H - PAD.bottom + 14);
+  ctx.font      = '10px system-ui,sans-serif';
+  const tickHours = [7, 10, 13, 16, 19, 22, 24];
+  tickHours.forEach(h => {
+    const t = new Date(dayBase); t.setHours(h, 0, 0, 0);
+    if (t.getTime() < minT) return; // skip if axis was extended earlier
+    const x   = xOf(t.getTime());
+    const lbl = h === 24 ? '00:00' : `${String(h).padStart(2, '0')}:00`;
+    ctx.fillText(lbl, x, H - PAD.bottom + 14);
   });
 
   // Target reference lines (dashed, always drawn even with no data).
@@ -182,12 +192,14 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
         ctx.lineTo(xOf(times[i]), yOf(cum[i - 1])); // hold flat
         ctx.lineTo(xOf(times[i]), yOf(cum[i]));     // step up
       }
+      // Extend flat to the right edge of the chart (24:00) after the last entry.
+      ctx.lineTo(PAD.left + cW, yOf(cum[cum.length - 1]));
     };
 
     // Filled area under the step path.
     ctx.beginPath();
     buildStepPath();
-    ctx.lineTo(xOf(times[times.length - 1]), yOf(0));
+    ctx.lineTo(PAD.left + cW, yOf(0));
     ctx.closePath();
     ctx.fillStyle = colour.fill;
     ctx.fill();
