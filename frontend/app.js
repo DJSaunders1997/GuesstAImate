@@ -478,10 +478,19 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     const cum    = cumSeries[si];
     const colour = s.colour;
 
+    // Step path builder: hold y flat until next point, then step up vertically
+    const buildStepPath = () => {
+      ctx.moveTo(xOf(times[0]), yOf(0));
+      ctx.lineTo(xOf(times[0]), yOf(cum[0]));
+      for (let i = 1; i < cum.length; i++) {
+        ctx.lineTo(xOf(times[i]), yOf(cum[i - 1])); // hold flat
+        ctx.lineTo(xOf(times[i]), yOf(cum[i]));     // step up
+      }
+    };
+
     // Fill
     ctx.beginPath();
-    ctx.moveTo(xOf(times[0]), yOf(0));
-    cum.forEach((v, i) => ctx.lineTo(xOf(times[i]), yOf(v)));
+    buildStepPath();
     ctx.lineTo(xOf(times[times.length - 1]), yOf(0));
     ctx.closePath();
     ctx.fillStyle = colour.fill;
@@ -492,7 +501,7 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     ctx.strokeStyle = colour.line;
     ctx.lineWidth   = 2;
     ctx.lineJoin    = 'round';
-    cum.forEach((v, i) => { const x = xOf(times[i]), y = yOf(v); i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); });
+    buildStepPath();
     ctx.stroke();
 
     // Dots + value labels
