@@ -3,7 +3,7 @@
 
 🌐 **[Try it live →](https://djsaunders1997.github.io/GuesstAImate)**
 
-![GuesstAImate screenshot](screenshot.png)
+<img src="screenshot.png" width="50%" alt="GuesstAImate screenshot" />
 
 ---
 
