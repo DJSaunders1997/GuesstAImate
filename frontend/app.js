@@ -58,10 +58,11 @@ function nextDay() {
 // ── RECORDING STATE ──────────────────────────────────────────────────────────
 const MAX_RECORD_SECS = 60;
 let mediaRecorder  = null;
-let audioChunks    = [];
+let audioChunks    = [];  
 let isRecording    = false;
 let recordingTimer = null;  // auto-stop timeout
 let countdownTimer = null;  // 1-second tick for UI
+let liveRecognition = null; // SpeechRecognition for live captions
 
 btn.addEventListener('click', () => {
   if (!isRecording) startRecording();
@@ -98,6 +99,22 @@ async function startRecording() {
 
     // Auto-stop after limit
     recordingTimer = setTimeout(() => stopRecording(), MAX_RECORD_SECS * 1000);
+
+    // Live transcription via Web Speech API (Chrome/Edge/Safari only)
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      liveRecognition = new SpeechRecognition();
+      liveRecognition.continuous     = true;
+      liveRecognition.interimResults = true;
+      liveRecognition.lang           = 'en-GB';
+      liveRecognition.onresult = e => {
+        let text = '';
+        for (const result of e.results) text += result[0].transcript;
+        transcriptEl.textContent = text;
+      };
+      liveRecognition.onerror = () => {}; // silently ignore — Whisper handles the final version
+      liveRecognition.start();
+    }
   } catch {
     setStatus('Microphone access denied. Please allow microphone access and try again.', 'error');
   }
@@ -106,6 +123,7 @@ async function startRecording() {
 function stopRecording() {
   clearTimeout(recordingTimer);
   clearInterval(countdownTimer);
+  if (liveRecognition) { liveRecognition.onresult = null; liveRecognition.stop(); liveRecognition = null; }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   isRecording     = false;
   btn.className   = 'processing';

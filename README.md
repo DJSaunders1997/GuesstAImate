@@ -17,22 +17,24 @@ Apps like MyFitnessPal are great, but they cause tracking fatigue — constant w
 
 ## What can it do?
 
-- 🎙️ **Voice logging** — tap record, say what you ate, done
+- 🎙️ **Voice logging** — tap record, say what you ate, done (60-second limit with live countdown)
 - ✏️ **Manual entry** — prefer to type? Hit the `+` button
 - 🍗 **Macros** — tracks protein, carbs, fat and fibre alongside calories
 - 📅 **Day-by-day history** — flick back through previous days
 - 📈 **Charts** — see your intake build up through the day, with target reference lines
 - ⚙️ **Editable targets** — set your own daily calorie and macro goals
-- 💾 **No account needed** — everything lives in your browser
+- � **Live transcription** — your words appear on screen as you speak (Chrome/Edge/Safari)
+- �💾 **No account needed** — everything lives in your browser
 
 ---
 
 ## How does it work?
 
 You tap a button and speak. Your voice is sent to an AI that:
-1. Converts your speech to text (OpenAI Whisper)
-2. Reads the text and estimates the calories and macros for everything you mentioned (GPT-4o-mini)
-3. Sends the results back to your browser, where they're saved locally
+1. Shows your words live on screen as you speak, via the browser's Web Speech API
+2. Converts your speech to text with high accuracy (OpenAI Whisper) — this overwrites the live preview once done
+3. Reads the text and estimates the calories and macros for everything you mentioned (GPT-4o-mini)
+4. Sends the results back to your browser, where they're saved locally
 
 The whole thing takes a few seconds. Nothing is stored on a server — your food log lives in your browser.
 
