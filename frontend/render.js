@@ -93,23 +93,57 @@ function nextDay() {
  * @returns {string} HTML string for the form fields and action buttons.
  */
 function entryFormHTML(vals, saveCall) {
+  const suggestions = getUniqueFoods()
+    .filter(f => f !== vals.food)
+    .map(f => `<option value="${escapeHtml(f)}">`)
+    .join('');
   return `
-    <div class="edit-fields">
-      <input class="edit-food" placeholder="Food description" value="${escapeHtml(vals.food)}" />
-      <input class="edit-calories" type="number" min="0" placeholder="0" value="${vals.calories}" />
-      <span class="edit-unit">kcal</span>
-    </div>
-    <div class="edit-macros">
-      <label>P  <input class="edit-protein" type="number" min="0" step="0.1" value="${vals.protein}" />g</label>
-      <label>C  <input class="edit-carbs"   type="number" min="0" step="0.1" value="${vals.carbs}" />g</label>
-      <label>F  <input class="edit-fat"     type="number" min="0" step="0.1" value="${vals.fat}" />g</label>
-      <label>Fi <input class="edit-fibre"   type="number" min="0" step="0.1" value="${vals.fibre}" />g</label>
-      <label class="edit-time-label">🕐 <input class="edit-time" type="time" value="${vals.timeVal}" /></label>
+    <div class="log-left">
+      <div class="edit-fields">
+        <datalist id="food-suggestions">${suggestions}</datalist>
+        <input class="edit-food" list="food-suggestions" placeholder="Food description" value="${escapeHtml(vals.food)}" />
+        <input class="edit-calories" type="number" min="0" placeholder="0" value="${vals.calories}" />
+        <span class="edit-unit">kcal</span>
+      </div>
+      <div class="edit-macros">
+        <label>P  <input class="edit-protein" type="number" min="0" step="0.1" value="${vals.protein}" />g</label>
+        <label>C  <input class="edit-carbs"   type="number" min="0" step="0.1" value="${vals.carbs}" />g</label>
+        <label>F  <input class="edit-fat"     type="number" min="0" step="0.1" value="${vals.fat}" />g</label>
+        <label>Fi <input class="edit-fibre"   type="number" min="0" step="0.1" value="${vals.fibre}" />g</label>
+        <label class="edit-time-label">🕐 <input class="edit-time" type="time" value="${vals.timeVal}" /></label>
+      </div>
     </div>
     <div class="log-right">
       <button class="save-btn" onclick="${saveCall}">Save</button>
       <button class="cancel-btn" onclick="renderLogs()">✕</button>
     </div>`;
+}
+
+/**
+ * Wires up auto-fill on the food input inside a form container so that
+ * selecting a previous entry from the datalist populates macros and kcal.
+ * @param {HTMLElement} container - The `.log-entry` element containing the form.
+ */
+function attachFoodAutofill(container) {
+  const foodInput = container.querySelector('.edit-food');
+  if (!foodInput) return;
+  foodInput.addEventListener('change', () => {
+    const chosen = foodInput.value.trim();
+    if (!chosen) return;
+    // Find the most recent log that matches this food name exactly.
+    const match = getLogs().find(l => l.food === chosen);
+    if (!match) return;
+    const cal = container.querySelector('.edit-calories');
+    const pro = container.querySelector('.edit-protein');
+    const crb = container.querySelector('.edit-carbs');
+    const fat = container.querySelector('.edit-fat');
+    const fib = container.querySelector('.edit-fibre');
+    if (cal) cal.value = match.calories ?? '';
+    if (pro) pro.value = match.protein  ?? 0;
+    if (crb) crb.value = match.carbs    ?? 0;
+    if (fat) fat.value = match.fat      ?? 0;
+    if (fib) fib.value = match.fibre    ?? 0;
+  });
 }
 
 /**
@@ -146,6 +180,7 @@ function editLog(id) {
       fat: log.fat || 0, fibre: log.fibre || 0, timeVal },
     `saveLog(${id})`
   );
+  attachFoodAutofill(entry);
   entry.querySelector('.edit-food').focus();
 }
 
@@ -195,6 +230,7 @@ function showAddForm() {
     'saveNewLog()'
   );
   logList.insertBefore(div, logList.firstChild);
+  attachFoodAutofill(div);
   div.querySelector('.edit-food').focus();
 }
 

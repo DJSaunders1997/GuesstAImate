@@ -80,6 +80,23 @@ function deleteLog(id) {
 }
 
 /**
+ * Returns a deduplicated list of all food descriptions ever logged,
+ * preserving most-recent-first order, for use in autocomplete suggestions.
+ * @returns {string[]} Unique food strings.
+ */
+function getUniqueFoods() {
+  const seen = new Set();
+  const result = [];
+  for (const l of getLogs()) {
+    if (l.food && !seen.has(l.food)) {
+      seen.add(l.food);
+      result.push(l.food);
+    }
+  }
+  return result;
+}
+
+/**
  * Serialises all log entries to CSV and triggers a browser download.
  * Columns: Date, Time, Food, Calories, Transcript.
  * Alerts the user if there are no entries to export.
