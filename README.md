@@ -77,8 +77,12 @@ User speaks → MediaRecorder (WebM) → POST /track (FastAPI on Azure)
 ```
 GuesstAImate/
 ├── frontend/
-│   ├── index.html          # Single-page app
-│   ├── app.js              # All JS - recording, storage, charts, edit/add
+│   ├── index.html          # Single-page app shell and markup
+│   ├── main.js             # Entry point — config, DOM refs, event listeners, init
+│   ├── storage.js          # localStorage read/write, addLog, deleteLog, CSV export
+│   ├── recording.js        # Microphone capture, Whisper API call, live captions
+│   ├── charts.js           # Canvas chart rendering and daily targets dialog
+│   ├── render.js           # Log list rendering, day navigation, entry forms, utils
 │   ├── styles.css          # Dark theme styles
 │   └── Dockerfile          # Nginx image for local Docker testing
 ├── backend/
