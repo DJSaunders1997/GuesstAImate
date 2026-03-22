@@ -13,7 +13,7 @@
 
 const MAX_RECORD_SECS    = 60;
 const SILENCE_THRESHOLD  = 0.015; // RMS amplitude below this = silence (tune if needed)
-const SILENCE_DURATION_MS = 1500; // sustained silence for this long → auto-stop
+const SILENCE_DURATION_MS = 2500; // sustained silence for this long → auto-stop
 const MIN_RECORDING_MS   = 750;  // never auto-stop before this many ms of recording
 
 let mediaRecorder  = null;
