@@ -122,3 +122,40 @@ function downloadCSV() {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+/**
+ * Computes the current daily logging streak and the all-time best streak.
+ * A "streak" is a run of consecutive calendar days each containing at least one log.
+ * Today is included if it has any logs.
+ * @returns {{current: number, best: number}}
+ */
+function getStreak() {
+  const logs = getLogs();
+  if (logs.length === 0) return { current: 0, best: 0 };
+
+  const loggedDays = new Set(logs.map(l => new Date(l.timestamp).toDateString()));
+
+  // Current streak — walk backwards from today until a day has no logs.
+  let current = 0;
+  const cursor = new Date();
+  cursor.setHours(0, 0, 0, 0);
+  while (loggedDays.has(cursor.toDateString())) {
+    current++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  // Best streak — sort all logged date values and count the longest run.
+  const sorted = [...loggedDays]
+    .map(s => { const d = new Date(s); d.setHours(0, 0, 0, 0); return d.getTime(); })
+    .sort((a, b) => a - b);
+
+  let best = sorted.length ? 1 : 0;
+  let run  = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const gapDays = Math.round((sorted[i] - sorted[i - 1]) / 86400000);
+    run = gapDays === 1 ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+
+  return { current, best };
+}
