@@ -56,9 +56,12 @@ function nextDay() {
 }
 
 // ── RECORDING STATE ──────────────────────────────────────────────────────────
-let mediaRecorder = null;
-let audioChunks   = [];
-let isRecording   = false;
+const MAX_RECORD_SECS = 60;
+let mediaRecorder  = null;
+let audioChunks    = [];
+let isRecording    = false;
+let recordingTimer = null;  // auto-stop timeout
+let countdownTimer = null;  // 1-second tick for UI
 
 btn.addEventListener('click', () => {
   if (!isRecording) startRecording();
@@ -86,13 +89,23 @@ async function startRecording() {
     isRecording = true;
     btn.className   = 'recording';
     btn.textContent = '⏹️';
-    setStatus('Recording… tap to stop', '');
+
+    // Countdown UI
+    let secsLeft = MAX_RECORD_SECS;
+    const updateCountdown = () => setStatus(`Recording… ${secsLeft}s remaining`, '');
+    updateCountdown();
+    countdownTimer = setInterval(() => { secsLeft--; updateCountdown(); }, 1000);
+
+    // Auto-stop after limit
+    recordingTimer = setTimeout(() => stopRecording(), MAX_RECORD_SECS * 1000);
   } catch {
     setStatus('Microphone access denied. Please allow microphone access and try again.', 'error');
   }
 }
 
 function stopRecording() {
+  clearTimeout(recordingTimer);
+  clearInterval(countdownTimer);
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   isRecording     = false;
   btn.className   = 'processing';
