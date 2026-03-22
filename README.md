@@ -18,12 +18,14 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 ## Features
 
 - 🎙️ **Voice logging** — tap record, say what you ate, done
+- 🗣️ **Voice editing** — say *"Change my cornish pasty to 400 calories"* or *"Remove the biscuits"* to correct or delete existing entries
 - ✏️ **Manual entry** — hit `+`, with autocomplete from previous entries
 - 🍗 **Macros** — protein, carbs, fat and fibre alongside calories
 - 📅 **Day-by-day history** — flick back through previous days
 - 📈 **Charts** — see intake build up through the day, with target lines
 - ⚙️ **Editable targets** — set your own daily calorie and macro goals
 - 💬 **Live transcription** — words appear on screen as you speak
+- 🔥 **Streak tracking** — consecutive logging days shown in the header
 - 📱 **Installable** — add to home screen on Android or iPhone (PWA)
 - 💾 **No account needed** — everything lives in your browser
 
@@ -55,9 +57,9 @@ For developer docs (file breakdown, PWA, local dev, deployment) → see [fronten
 2. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
 3. **Meal templates / favourites** — save a common meal (e.g. "my usual lunch") and log it in one tap
 4. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
-5. **Streak tracking** — gamify consistent logging with daily streaks and milestones
-6. **Water intake logging** — track hydration alongside food, with a daily target
-7. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
-8. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
-9. **Export to CSV** — download your full log history to use in spreadsheets or share with a dietitian
+5. **Water intake logging** — track hydration alongside food, with a daily target
+6. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
+7. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
+8. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
+9. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
 10. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)

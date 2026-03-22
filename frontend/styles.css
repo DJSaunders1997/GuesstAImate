@@ -386,6 +386,43 @@ header h1 .ai { color: var(--primary); }
   letter-spacing: 0.06em;
 }
 
+/* ── CONFIRM DIALOG ──────────────────────────────── */
+#confirm-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+#confirm-overlay.active { display: flex; }
+
+#confirm-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  min-width: 260px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+#confirm-message {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+#confirm-message small { font-size: 0.8rem; }
+
+.confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
 /* ── TARGETS DIALOG ─────────────────────────────── */
 #targets-overlay {
   display: none;

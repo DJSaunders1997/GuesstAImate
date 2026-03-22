@@ -1,18 +1,20 @@
-import os
 import json
 import logging
+import os
 import tempfile
 import time
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
-load_dotenv()  # loads .env from the current working directory
+from ai_service import AIService, EXT_MAP, MAX_AUDIO_BYTES
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -33,6 +35,7 @@ app.add_middleware(
 
 _api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=_api_key)
+ai = AIService(client)
 
 
 @app.on_event("startup")
@@ -72,48 +75,38 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-SYSTEM_PROMPT = (
-    "You are a nutrition assistant. The user will describe what they ate in natural language. "
-    "Split the description into individual food items or meals. Each distinct item or meal gets its own entry. "
-    "For each item estimate: calories, protein (g), carbs (g), fat (g), fibre (g). "
-    "Use rough but reasonable estimates - consistency matters more than precision. "
-    "Also extract any time reference for each item. "
-    "If the user mentions a specific time (e.g. 'at 10am', 'at 2:30pm'), return it as HH:MM in 24-hour format. "
-    "If the user mentions a meal name with no explicit time, map it: "
-    "breakfast=07:30, brunch=10:00, lunch=12:30, afternoon tea=15:30, dinner=18:30, supper=19:30. "
-    "If no time is mentioned for an item, return null for its time. "
-    'Return ONLY a valid JSON array: [{"food": "description", "calories": 300, "protein": 10, "carbs": 40, "fat": 8, "fibre": 3, "time": "09:00"}]. '
-    "No markdown, no explanation - just the JSON array."
-)
-
-# File-extension map for common audio MIME types from browsers
-_EXT_MAP = {
-    "audio/ogg": ".ogg",
-    "audio/mp4": ".mp4",
-    "audio/mpeg": ".mp3",
-    "audio/wav": ".wav",
-    "audio/x-wav": ".wav",
-}
-
-MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Whisper API hard limit: 25 MB
-
-
 @app.post("/track")
-async def track(audio: UploadFile = File(...)):
-    """
-    Accepts an audio file, transcribes it with Whisper-1, then asks
-    GPT-4o-mini to estimate calories. Returns JSON: {food, calories, transcript}.
+async def track(
+    audio: UploadFile = File(...),
+    entries: str = Form(default="[]"),
+):
+    """Transcribe audio and classify intent (add / edit / delete).
+
+    Accepts:
+      - audio:   the recorded audio file
+      - entries: JSON string of today's log entries (id, food, calories, macros)
+                 used as context for edit/delete matching
+
+    Returns one of:
+      {"intent": "add",    "items": [...],    "transcript": "..."}
+      {"intent": "edit",   "entry_id": <int>, "updates": {...}, "transcript": "..."}
+      {"intent": "delete", "entry_id": <int>, "transcript": "..."}
     """
     data = await audio.read()
-
     if len(data) == 0:
         raise HTTPException(status_code=400, detail="Empty audio file.")
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio file exceeds 25 MB limit.")
 
-    # Determine the correct file extension so Whisper can decode the stream
+    try:
+        existing_entries = json.loads(entries)
+        if not isinstance(existing_entries, list):
+            existing_entries = []
+    except (json.JSONDecodeError, ValueError):
+        existing_entries = []
+
     content_type = (audio.content_type or "audio/webm").split(";")[0].strip()
-    suffix = _EXT_MAP.get(content_type, ".webm")
+    suffix = EXT_MAP.get(content_type, ".webm")
 
     tmp_path = None
     try:
@@ -121,13 +114,7 @@ async def track(audio: UploadFile = File(...)):
             tmp.write(data)
             tmp_path = tmp.name
 
-        # Step 1: Speech → Text
-        with open(tmp_path, "rb") as f:
-            transcript_obj = client.audio.transcriptions.create(
-                model="whisper-1", file=f
-            )
-
-        transcript_text = transcript_obj.text.strip()
+        transcript_text = ai.transcribe_audio(tmp_path)
         logger.info("Whisper transcript: %s", transcript_text)
 
         if not transcript_text:
@@ -135,43 +122,43 @@ async def track(audio: UploadFile = File(...)):
                 status_code=422, detail="Could not understand audio. Please try again."
             )
 
-        # Step 2: Text → {food, calories}
-        completion = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": transcript_text},
-            ],
-            temperature=0.3,
-            max_tokens=600,
-        )
+        result = ai.classify_intent(transcript_text, existing_entries)
+        intent = result.get("intent", "add")
 
-        raw = completion.choices[0].message.content.strip()
-        logger.info("GPT response: %s", raw)
+        if intent == "add":
+            items = ai.normalise_add_items(result.get("items", []))
+            return {"intent": "add", "items": items, "transcript": transcript_text}
 
-        result = json.loads(raw)
-
-        # Normalise: GPT should return an array but handle a plain object too
-        if isinstance(result, dict):
-            result = [result]
-
-        items = [
-            {
-                "food": str(item["food"]),
-                "calories": int(item["calories"]),
-                "protein": float(item.get("protein") or 0),
-                "carbs":   float(item.get("carbs")   or 0),
-                "fat":     float(item.get("fat")     or 0),
-                "fibre":   float(item.get("fibre")   or 0),
-                "time_hint": item.get("time"),  # "HH:MM" or null
+        if intent == "edit":
+            entry_id = result.get("entry_id")
+            if entry_id is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Could not identify which entry to edit. Try being more specific.",
+                )
+            return {
+                "intent": "edit",
+                "entry_id": entry_id,
+                "updates": result.get("updates", {}),
+                "transcript": transcript_text,
             }
-            for item in result
-        ]
 
-        return {"items": items, "transcript": transcript_text}
+        if intent == "delete":
+            entry_id = result.get("entry_id")
+            if entry_id is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Could not identify which entry to delete. Try being more specific.",
+                )
+            return {
+                "intent": "delete",
+                "entry_id": entry_id,
+                "transcript": transcript_text,
+            }
+
+        raise HTTPException(status_code=422, detail=f"Unknown intent: {intent}")
 
     except json.JSONDecodeError:
-        logger.error("Failed to parse GPT JSON: %s", locals().get("raw", "<not set>"))
         raise HTTPException(
             status_code=500,
             detail="AI returned an unexpected format. Please try again.",
@@ -189,9 +176,8 @@ def health():
 
 
 # ---------------------------------------------------------------------------
-# Serve the frontend - only when the ../frontend directory exists (local dev).
+# Serve the frontend — only when the ../frontend directory exists (local dev).
 # In production the frontend is on GitHub Pages; this block is a no-op there.
-# Visit http://localhost:8000 to open the app without any CORS issues.
 # ---------------------------------------------------------------------------
 _FRONTEND = Path(__file__).parent.parent / "frontend"
 if _FRONTEND.is_dir():

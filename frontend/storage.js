@@ -80,6 +80,18 @@ function deleteLog(id) {
 }
 
 /**
+ * Applies a partial update to an existing log entry (e.g. from a voice edit).
+ * Only the keys present in `updates` are changed; all other fields are preserved.
+ * @param {number} id      - ID of the entry to update.
+ * @param {Object} updates - Partial object with fields to overwrite (calories, protein, etc.).
+ */
+function updateLog(id, updates) {
+  const logs = getLogs().map(l => l.id === id ? { ...l, ...updates } : l);
+  saveLogs(logs);
+  renderLogs();
+}
+
+/**
  * Returns a deduplicated list of all food descriptions ever logged,
  * preserving most-recent-first order, for use in autocomplete suggestions.
  * @returns {string[]} Unique food strings.

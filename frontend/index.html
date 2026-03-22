@@ -30,7 +30,7 @@
 
 <div class="record-section">
   <button id="record-btn" aria-label="Record">🎙️</button>
-  <div id="status">Tap to record what you ate</div>
+  <div id="status">Tap to record what you ate — or to remove / edit foods</div>
   <div id="transcript"></div>
 </div>
 
@@ -70,6 +70,17 @@
         <div class="macro-subplot-header macro-fi">Fibre</div>
         <canvas id="chart-fibre"></canvas>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Voice-action confirmation dialog -->
+<div id="confirm-overlay">
+  <div id="confirm-dialog">
+    <p id="confirm-message"></p>
+    <div class="confirm-actions">
+      <button id="confirm-yes" class="save-btn">Confirm</button>
+      <button id="confirm-no"  class="cancel-btn">Cancel</button>
     </div>
   </div>
 </div>

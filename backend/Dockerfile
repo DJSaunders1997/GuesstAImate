@@ -9,7 +9,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --frozen --no-dev --no-install-project
 
-COPY main.py .
+COPY main.py ai_service.py .
 
 EXPOSE 80
 

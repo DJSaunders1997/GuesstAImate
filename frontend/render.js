@@ -34,6 +34,35 @@ function setStatus(msg, type) {
   status.className   = type;
 }
 
+/**
+ * Shows a modal confirmation dialog with the given HTML message.
+ * Returns a Promise that resolves to true (confirmed) or false (cancelled).
+ * @param {string} htmlMessage - Inner HTML to display as the prompt.
+ * @returns {Promise<boolean>}
+ */
+function showConfirm(htmlMessage) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('confirm-overlay');
+    const msgEl   = document.getElementById('confirm-message');
+    msgEl.innerHTML = htmlMessage;
+    overlay.classList.add('active');
+
+    const yesBtn = document.getElementById('confirm-yes');
+    const noBtn  = document.getElementById('confirm-no');
+
+    function finish(result) {
+      overlay.classList.remove('active');
+      yesBtn.removeEventListener('click', onYes);
+      noBtn.removeEventListener('click', onNo);
+      resolve(result);
+    }
+    const onYes = () => finish(true);
+    const onNo  = () => finish(false);
+    yesBtn.addEventListener('click', onYes);
+    noBtn.addEventListener('click', onNo);
+  });
+}
+
 // ── DAY NAVIGATION ────────────────────────────────────────────────────────────
 
 /**
