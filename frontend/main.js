@@ -57,3 +57,29 @@ document.getElementById('export-btn').addEventListener('click', downloadCSV);
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 renderLogs();
+
+// ── IOS INSTALL NUDGE ────────────────────────────────────────────────────────
+// iOS Safari never fires beforeinstallprompt, so we show our own banner
+// telling users how to add to their home screen via the Share sheet.
+(function showIOSInstallBanner() {
+  const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  const dismissed    = sessionStorage.getItem('ios-banner-dismissed');
+  if (!isIOS || isStandalone || dismissed) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'ios-install-banner';
+  banner.innerHTML = `
+    <span class="banner-icon">📲</span>
+    <div class="banner-text">
+      <strong>Add to Home Screen</strong>
+      <span>Tap the <strong>Share</strong> button ⬆️ then <strong>"Add to Home Screen"</strong> to install GuesstAImate as an app.</span>
+    </div>
+    <button class="banner-close" aria-label="Dismiss">✕</button>
+  `;
+  document.body.appendChild(banner);
+  banner.querySelector('.banner-close').addEventListener('click', () => {
+    banner.remove();
+    sessionStorage.setItem('ios-banner-dismissed', '1');
+  });
+}());
