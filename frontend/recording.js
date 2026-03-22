@@ -97,10 +97,10 @@ function stopRecording() {
 }
 
 /**
- * POSTs the recorded audio blob to the backend /track endpoint, parses the
- * structured response, and logs each returned food item via addLog().
- * Updates the transcript display and status message on completion.
- * Handles network and server errors gracefully.
+ * POSTs the recorded audio blob to the backend /track endpoint along with
+ * the current day's log entries (for edit/delete context). Handles the
+ * response intent — 'add', 'edit', or 'delete' — with confirmation dialogs
+ * for destructive changes before applying them to storage.
  */
 async function processAudio() {
   try {
@@ -108,8 +108,17 @@ async function processAudio() {
     const blob     = new Blob(audioChunks, { type: mimeType });
     const ext      = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm';
 
+    // Send today's entries as context so the AI can match edit/delete requests.
+    const todayStr     = selectedDate.toDateString();
+    const todayEntries = getLogs()
+      .filter(l => new Date(l.timestamp).toDateString() === todayStr)
+      .map(({ id, food, calories, protein, carbs, fat, fibre }) =>
+        ({ id, food, calories, protein, carbs, fat, fibre })
+      );
+
     const formData = new FormData();
-    formData.append('audio', blob, `recording.${ext}`);
+    formData.append('audio',   blob, `recording.${ext}`);
+    formData.append('entries', JSON.stringify(todayEntries));
 
     const res = await fetch(`${BACKEND_URL}/track`, { method: 'POST', body: formData, credentials: 'omit' });
 
@@ -118,20 +127,63 @@ async function processAudio() {
       throw new Error(err.detail || `Server error (${res.status})`);
     }
 
-    const { items, transcript } = await res.json();
+    const result = await res.json();
+    const { intent, transcript } = result;
+
     // Whisper's accurate transcript replaces the live Web Speech API preview.
     transcriptEl.textContent = `"${transcript}"`;
 
-    items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
-      addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
-    );
+    if (intent === 'add') {
+      const { items } = result;
+      items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
+        addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
+      );
+      if (items.length === 1) {
+        setStatus(`Logged: ${items[0].food} - ${items[0].calories} kcal`, 'success');
+      } else {
+        const total = items.reduce((s, i) => s + i.calories, 0);
+        setStatus(`Logged ${items.length} items - ${total} kcal total`, 'success');
+      }
 
-    if (items.length === 1) {
-      setStatus(`Logged: ${items[0].food} - ${items[0].calories} kcal`, 'success');
-    } else {
-      const total = items.reduce((s, i) => s + i.calories, 0);
-      setStatus(`Logged ${items.length} items - ${total} kcal total`, 'success');
+    } else if (intent === 'edit') {
+      const { entry_id, updates } = result;
+      const entry = getLogs().find(l => l.id === entry_id);
+      if (!entry) {
+        setStatus("Couldn't find that entry in today's log.", 'error');
+        return;
+      }
+      const fieldLabels = { calories: 'kcal', protein: 'g protein', carbs: 'g carbs', fat: 'g fat', fibre: 'g fibre', food: '' };
+      const changedSummary = Object.entries(updates)
+        .map(([k, v]) => `${k}: ${entry[k] ?? '?'} → ${v}${fieldLabels[k] ?? ''}`)
+        .join(', ');
+      const confirmed = await showConfirm(
+        `Update <strong>${escapeHtml(entry.food)}</strong>?<br><small style="color:var(--muted)">${escapeHtml(changedSummary)}</small>`
+      );
+      if (confirmed) {
+        updateLog(entry_id, updates);
+        setStatus(`Updated: ${entry.food}`, 'success');
+      } else {
+        setStatus('Edit cancelled.', '');
+      }
+
+    } else if (intent === 'delete') {
+      const { entry_id } = result;
+      const entry = getLogs().find(l => l.id === entry_id);
+      if (!entry) {
+        setStatus("Couldn't find that entry in today's log.", 'error');
+        return;
+      }
+      const confirmed = await showConfirm(
+        `Remove <strong>${escapeHtml(entry.food)}</strong> (${entry.calories} kcal) from the log?`
+      );
+      if (confirmed) {
+        deleteLog(entry_id);
+        setStatus(`Removed: ${entry.food}`, 'success');
+      } else {
+        setStatus('Deletion cancelled.', '');
+      }
     }
+
   } catch (err) {
     transcriptEl.textContent = '';
     setStatus(`Error: ${err.message}`, 'error');
