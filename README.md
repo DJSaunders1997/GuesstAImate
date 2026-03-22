@@ -17,7 +17,8 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 
 ## Features
 
-- 🎙️ **Voice logging** — tap record, say what you ate, done
+- 🎙️ **Voice logging** — tap record, say what you ate, done. Stops automatically when you finish speaking
+- 📊 **Live waveform** — see your audio visualised in real-time; colour shifts from green (speaking) to amber (silence detected, about to stop)
 - 🗣️ **Voice editing** — say *"Change my cornish pasty to 400 calories"* or *"Remove the biscuits"* to correct or delete existing entries
 - ✏️ **Manual entry** — hit `+`, with autocomplete from previous entries
 - 🍗 **Macros** — protein, carbs, fat and fibre alongside calories

@@ -11,14 +11,22 @@
  *                   addLog (storage.js), setStatus (render.js).
  */
 
-const MAX_RECORD_SECS = 60;
+const MAX_RECORD_SECS    = 60;
+const SILENCE_THRESHOLD  = 0.015; // RMS amplitude below this = silence (tune if needed)
+const SILENCE_DURATION_MS = 1500; // sustained silence for this long → auto-stop
+const MIN_RECORDING_MS   = 750;  // never auto-stop before this many ms of recording
 
 let mediaRecorder  = null;
 let audioChunks    = [];
 let isRecording    = false;
-let recordingTimer = null;   // setTimeout handle - auto-stops after MAX_RECORD_SECS
-let countdownTimer = null;   // setInterval handle - ticks countdown in the UI
+let recordingTimer = null;   // setTimeout handle - hard limit after MAX_RECORD_SECS
 let liveRecognition = null;  // Web Speech API instance for live captions
+let audioContext   = null;   // Web Audio API context for VAD
+let vadInterval    = null;   // setInterval handle for audio level polling
+let silenceSince   = null;   // timestamp when silence began (null if speaking)
+let speechDetected = false;  // true once we've seen audio above the threshold
+let recordingStart = 0;      // Date.now() at recording start
+let waveformRaf    = null;   // requestAnimationFrame handle for waveform drawing
 
 /**
  * Requests microphone access, starts recording, launches the countdown UI,
@@ -42,18 +50,72 @@ async function startRecording() {
     };
 
     mediaRecorder.start(250); // collect chunks every 250 ms
-    isRecording     = true;
+    isRecording    = true;
+    recordingStart = Date.now();
+    speechDetected = false;
+    silenceSince   = null;
     btn.className   = 'recording';
     btn.textContent = '⏹️';
+    setStatus('Listening…', '');
 
-    // Countdown UI - tick every second to show time remaining.
-    let secsLeft = MAX_RECORD_SECS;
-    const updateCountdown = () => setStatus(`Recording… ${secsLeft}s remaining`, '');
-    updateCountdown();
-    countdownTimer = setInterval(() => { secsLeft--; updateCountdown(); }, 1000);
-
-    // Auto-stop after the time limit.
+    // Hard time-limit fallback — VAD will usually stop it much sooner.
     recordingTimer = setTimeout(() => stopRecording(), MAX_RECORD_SECS * 1000);
+
+    // Voice activity detection via Web Audio API.
+    // Polls the RMS amplitude every 100 ms; triggers stopRecording() after
+    // SILENCE_DURATION_MS of sustained silence following detected speech.
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const vadSource   = audioContext.createMediaStreamSource(stream);
+    const analyser    = audioContext.createAnalyser();
+    analyser.fftSize  = 512;
+    vadSource.connect(analyser);
+    const vadBuf = new Uint8Array(analyser.fftSize);
+
+    vadInterval = setInterval(() => {
+      analyser.getByteTimeDomainData(vadBuf);
+      let sum = 0;
+      for (const b of vadBuf) { const v = (b - 128) / 128; sum += v * v; }
+      const rms     = Math.sqrt(sum / vadBuf.length);
+      const elapsed = Date.now() - recordingStart;
+
+      if (rms >= SILENCE_THRESHOLD) {
+        speechDetected = true;
+        silenceSince   = null;
+      } else if (speechDetected && elapsed >= MIN_RECORDING_MS) {
+        if (!silenceSince) { silenceSince = Date.now(); setStatus('Finishing…', ''); }
+        if (Date.now() - silenceSince >= SILENCE_DURATION_MS) stopRecording();
+      }
+    }, 100);
+
+    // Waveform visualiser — reuses the same analyser node as VAD.
+    // Color reflects state: grey = waiting for speech, green = speaking, amber = silence countdown.
+    const waveformCanvas = document.getElementById('waveform');
+    waveformCanvas.removeAttribute('hidden');
+    waveformCanvas.width  = 220 * devicePixelRatio;
+    waveformCanvas.height = 44  * devicePixelRatio;
+    const wctx    = waveformCanvas.getContext('2d');
+    const drawBuf = new Uint8Array(analyser.fftSize);
+    const drawWaveform = () => {
+      waveformRaf = requestAnimationFrame(drawWaveform);
+      analyser.getByteTimeDomainData(drawBuf);
+      const W = waveformCanvas.width;
+      const H = waveformCanvas.height;
+      wctx.clearRect(0, 0, W, H);
+      const color = !speechDetected ? '#94a3b8' : silenceSince ? '#f59e0b' : '#22c55e';
+      wctx.beginPath();
+      wctx.strokeStyle = color;
+      wctx.lineWidth   = 2 * devicePixelRatio;
+      const sliceW = W / drawBuf.length;
+      let x = 0;
+      for (let i = 0; i < drawBuf.length; i++) {
+        const y = (drawBuf[i] / 256) * H;
+        if (i === 0) wctx.moveTo(x, y); else wctx.lineTo(x, y);
+        x += sliceW;
+      }
+      wctx.lineTo(W, H / 2);
+      wctx.stroke();
+    };
+    drawWaveform();
 
     // Live transcription via Web Speech API (Chrome/Edge/Safari only).
     // Nulling onresult before stop() prevents a final flush event from
@@ -84,7 +146,12 @@ async function startRecording() {
  */
 function stopRecording() {
   clearTimeout(recordingTimer);
-  clearInterval(countdownTimer);
+  clearInterval(vadInterval);
+  vadInterval = null;
+  cancelAnimationFrame(waveformRaf);
+  waveformRaf = null;
+  document.getElementById('waveform').setAttribute('hidden', '');
+  if (audioContext) { audioContext.close(); audioContext = null; }
   // Null the onresult handler before stopping to prevent the browser firing a
   // final flush event that would overwrite the Whisper transcript.
   if (liveRecognition) { liveRecognition.onresult = null; liveRecognition.stop(); liveRecognition = null; }
@@ -103,6 +170,15 @@ function stopRecording() {
  * for destructive changes before applying them to storage.
  */
 async function processAudio() {
+  // If the VAD never detected speech, don't waste an API call.
+  if (!speechDetected) {
+    setStatus('Tap to record what you ate — or to remove / edit foods', '');
+    btn.className   = '';
+    btn.textContent = '🎙️';
+    btn.disabled    = false;
+    return;
+  }
+
   try {
     const mimeType = mediaRecorder.mimeType || 'audio/webm';
     const blob     = new Blob(audioChunks, { type: mimeType });
