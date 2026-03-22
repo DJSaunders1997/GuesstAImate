@@ -90,6 +90,16 @@ header h1 .ai { color: var(--primary); }
 #status.error   { color: var(--danger); }
 #status.success { color: var(--primary); }
 
+#transcript {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+  max-width: 320px;
+  font-style: italic;
+  min-height: 1.2em;
+  margin-top: 0.25rem;
+}
+
 /* ── LOG LIST ───────────────────────────────────── */
 .logs-section {
   flex: 1;

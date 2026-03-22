@@ -9,10 +9,15 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '0.
 const STORAGE_KEY = 'guesstaimate_logs';
 let selectedDate = new Date();
 
+// ── WARM-UP PING ─────────────────────────────────────────────────────────────
+// Hit the health endpoint immediately so ACA wakes up before the user records.
+fetch(`${BACKEND_URL}/health`).catch(() => {});
+
 // ── ELEMENTS ────────────────────────────────────────────────────────────────
-const btn      = document.getElementById('record-btn');
-const status   = document.getElementById('status');
-const logList  = document.getElementById('log-list');
+const btn        = document.getElementById('record-btn');
+const status     = document.getElementById('status');
+const transcriptEl = document.getElementById('transcript');
+const logList    = document.getElementById('log-list');
 const totalCal = document.getElementById('total-cal');
 
 document.getElementById('export-btn').addEventListener('click', downloadCSV);
@@ -113,6 +118,7 @@ async function processAudio() {
     }
 
     const { items, transcript } = await res.json();
+    transcriptEl.textContent = `"${transcript}"`;
     items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
       addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
     );
@@ -123,6 +129,7 @@ async function processAudio() {
       setStatus(`Logged ${items.length} items — ${total} kcal total`, 'success');
     }
   } catch (err) {
+    transcriptEl.textContent = '';
     setStatus(`Error: ${err.message}`, 'error');
   } finally {
     btn.className   = '';
@@ -145,9 +152,10 @@ function addLog(food, calories, protein, carbs, fat, fibre, transcript, timeHint
   const logs = getLogs();
   const base  = new Date(selectedDate);
   let timestamp;
-  if (timeHint) {
-    const [hours, minutes] = timeHint.split(':').map(Number);
-    base.setHours(hours, minutes, 0, 0);
+  const parts = typeof timeHint === 'string' ? timeHint.match(/^(\d{1,2}):(\d{2})$/) : null;
+  if (parts) {
+    const hours = Number(parts[1]), minutes = Number(parts[2]);
+    if (hours <= 23 && minutes <= 59) base.setHours(hours, minutes, 0, 0);
     timestamp = base.toISOString();
   } else {
     const now = new Date();
