@@ -3,6 +3,8 @@
 
 🌐 **[Try it live →](https://djsaunders1997.github.io/GuesstAImate)**
 
+![GuesstAImate screenshot](screenshot.png)
+
 ---
 
 ## What is it?
