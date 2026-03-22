@@ -1,7 +1,7 @@
 # GuesstAImate
 > Speak what you ate. Get an instant calorie estimate. No forms, no faff.
 
-🌐 **[Try it live →](https://djsaunders1997.github.io/GuesstAImate)**
+**Try it live:** https://djsaunders1997.github.io/GuesstAImate
 
 <img src="screenshot.png" width="50%" alt="GuesstAImate screenshot" />
 
