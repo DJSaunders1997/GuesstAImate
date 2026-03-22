@@ -248,6 +248,17 @@ function saveNewLog() {
 
 // ── LOG LIST ──────────────────────────────────────────────────────────────────
 
+// ── STREAK ───────────────────────────────────────────────────────────────────
+
+function updateStreakDisplay() {
+  const el = document.getElementById('streak-display');
+  if (!el) return;
+  const { current } = getStreak();
+  if (current === 0) { el.innerHTML = ''; return; }
+  const label = current === 1 ? 'day' : 'days';
+  el.innerHTML = `<span class="streak-badge">🔥 ${current} ${label} streak</span>`;
+}
+
 /**
  * Re-renders the entire log list and macro summary for the selected day,
  * then delegates chart drawing to renderCharts().
@@ -271,6 +282,7 @@ function renderLogs() {
   document.getElementById('total-fat').textContent     = fmt(totFat);
   document.getElementById('total-fibre').textContent   = fmt(totFibre);
   updateDayNav();
+  updateStreakDisplay();
 
   if (dayLogs.length === 0) {
     const isToday = selectedDate.toDateString() === new Date().toDateString();

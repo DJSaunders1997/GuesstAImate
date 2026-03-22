@@ -40,3 +40,24 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 | Storage | `localStorage` | Client-side |
 
 For developer docs (file breakdown, PWA, local dev, deployment) → see [frontend/README.md](frontend/README.md).
+
+---
+
+## Potential Future Improvements
+
+1. **User accounts + cloud sync** — log in to save your data across devices and not lose it if you clear your browser
+
+   Two viable approaches:
+   - **Firebase** (fastest) — Google's free-tier auth + Firestore database. No backend changes, talks directly from the browser. Handles thousands of users before hitting limits.
+   - **Azure Table Storage + FastAPI** (most control) — add login endpoints and `GET /logs` / `POST /logs` to the existing backend. Table Storage is pennies per GB and fits the log data structure well.
+
+   Either way, `localStorage` calls in `storage.js` would be replaced or mirrored with API/SDK calls, and the rest of the app stays the same.
+2. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
+3. **Meal templates / favourites** — save a common meal (e.g. "my usual lunch") and log it in one tap
+4. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
+5. **Streak tracking** — gamify consistent logging with daily streaks and milestones
+6. **Water intake logging** — track hydration alongside food, with a daily target
+7. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
+8. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
+9. **Export to CSV** — download your full log history to use in spreadsheets or share with a dietitian
+10. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)
