@@ -1,4 +1,4 @@
-const CACHE = 'guesstaimate-v2';
+const CACHE = 'guesstaimate-v3';
 const PRECACHE = [
   './',
   './index.html',

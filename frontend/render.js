@@ -91,6 +91,31 @@ function updateDayNav() {
   if (nextBtn)    nextBtn.disabled       = isToday;
 }
 
+// Whether the entry list is currently collapsed.
+let logsCollapsed = false;
+
+/**
+ * Toggles the entry list collapsed/expanded state.
+ */
+function toggleLogs() {
+  logsCollapsed = !logsCollapsed;
+  applyCollapseState();
+}
+
+/**
+ * Syncs the DOM to the current logsCollapsed state.
+ */
+function applyCollapseState() {
+  const list = document.getElementById('log-list');
+  const btn  = document.getElementById('entries-toggle');
+  if (!list || !btn) return;
+  const count = list.querySelectorAll('.log-entry').length;
+  btn.style.display = count > 0 ? '' : 'none';
+  list.style.display = logsCollapsed ? 'none' : '';
+  const label = `${count} entr${count === 1 ? 'y' : 'ies'}`;
+  btn.textContent = logsCollapsed ? `▶ ${label}` : `▼ ${label}`;
+}
+
 /**
  * Navigates to the previous day and re-renders the log list.
  */
@@ -98,6 +123,7 @@ function prevDay() {
   const d = new Date(selectedDate);
   d.setDate(d.getDate() - 1);
   selectedDate = d;
+  logsCollapsed = true;
   renderLogs();
 }
 
@@ -109,6 +135,7 @@ function nextDay() {
   const d = new Date(selectedDate);
   d.setDate(d.getDate() + 1);
   selectedDate = d;
+  logsCollapsed = selectedDate.toDateString() !== new Date().toDateString();
   renderLogs();
 }
 
@@ -318,6 +345,8 @@ function renderLogs() {
     logList.innerHTML = `<div id="empty-state">${isToday
       ? 'No entries yet today - tap the button above and tell me what you ate!'
       : 'No entries for this day.'}</div>`;
+    renderCharts(dayLogs);
+    applyCollapseState();
     return;
   }
 
@@ -348,4 +377,5 @@ function renderLogs() {
   }).join('');
 
   renderCharts(dayLogs);
+  applyCollapseState();
 }

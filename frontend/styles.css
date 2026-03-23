@@ -219,6 +219,23 @@ header h1 .ai { color: var(--primary); }
 #next-day:disabled { opacity: 0.3; cursor: default; }
 
 #log-list { display: flex; flex-direction: column; gap: 0.6rem; }
+#log-list.collapsed { display: none; }
+
+#entries-toggle {
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.35rem 0.25rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.02em;
+}
+#entries-toggle:hover { color: var(--text); }
 
 .log-entry {
   background: var(--surface);

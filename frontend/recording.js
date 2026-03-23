@@ -12,7 +12,7 @@
  */
 
 const MAX_RECORD_SECS    = 60;
-const SILENCE_THRESHOLD  = 0.015; // RMS amplitude below this = silence (tune if needed)
+const SILENCE_THRESHOLD  = 0.008; // RMS amplitude below this = silence (tune if needed)
 const SILENCE_DURATION_MS = 2500; // sustained silence for this long → auto-stop
 const MIN_RECORDING_MS   = 750;  // never auto-stop before this many ms of recording
 
@@ -65,14 +65,22 @@ async function startRecording() {
     // Polls the RMS amplitude every 100 ms; triggers stopRecording() after
     // SILENCE_DURATION_MS of sustained silence following detected speech.
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const vadSource   = audioContext.createMediaStreamSource(stream);
-    const analyser    = audioContext.createAnalyser();
-    analyser.fftSize  = 512;
-    vadSource.connect(analyser);
-    const vadBuf = new Uint8Array(analyser.fftSize);
+    const vadSource      = audioContext.createMediaStreamSource(stream);
+    // Separate analyser for VAD — no gain, so threshold comparison stays accurate.
+    const vadAnalyser    = audioContext.createAnalyser();
+    vadAnalyser.fftSize  = 512;
+    vadSource.connect(vadAnalyser);
+    // Separate high-gain analyser just for the waveform visualiser.
+    const gainNode       = audioContext.createGain();
+    gainNode.gain.value  = 20;
+    const waveAnalyser   = audioContext.createAnalyser();
+    waveAnalyser.fftSize = 512;
+    vadSource.connect(gainNode);
+    gainNode.connect(waveAnalyser);
+    const vadBuf = new Uint8Array(vadAnalyser.fftSize);
 
     vadInterval = setInterval(() => {
-      analyser.getByteTimeDomainData(vadBuf);
+      vadAnalyser.getByteTimeDomainData(vadBuf);
       let sum = 0;
       for (const b of vadBuf) { const v = (b - 128) / 128; sum += v * v; }
       const rms     = Math.sqrt(sum / vadBuf.length);
@@ -94,10 +102,11 @@ async function startRecording() {
     waveformCanvas.width  = 220 * devicePixelRatio;
     waveformCanvas.height = 44  * devicePixelRatio;
     const wctx    = waveformCanvas.getContext('2d');
-    const drawBuf = new Uint8Array(analyser.fftSize);
+    const drawBuf = new Float32Array(waveAnalyser.fftSize);
+    let smoothedPeak = 0.01;
     const drawWaveform = () => {
       waveformRaf = requestAnimationFrame(drawWaveform);
-      analyser.getByteTimeDomainData(drawBuf);
+      waveAnalyser.getFloatTimeDomainData(drawBuf);
       const W = waveformCanvas.width;
       const H = waveformCanvas.height;
       wctx.clearRect(0, 0, W, H);
@@ -105,10 +114,18 @@ async function startRecording() {
       wctx.beginPath();
       wctx.strokeStyle = color;
       wctx.lineWidth   = 2 * devicePixelRatio;
+      // Find peak in this frame and auto-scale so any voice fills the canvas.
+      let framePeak = 0.001;
+      for (let i = 0; i < drawBuf.length; i++) {
+        const abs = Math.abs(drawBuf[i]);
+        if (abs > framePeak) framePeak = abs;
+      }
+      smoothedPeak = Math.max(smoothedPeak * 0.95, framePeak);
+      const scale = (H / 2 * 0.9) / smoothedPeak;
       const sliceW = W / drawBuf.length;
       let x = 0;
       for (let i = 0; i < drawBuf.length; i++) {
-        const y = (drawBuf[i] / 256) * H;
+        const y = H / 2 - drawBuf[i] * scale;
         if (i === 0) wctx.moveTo(x, y); else wctx.lineTo(x, y);
         x += sliceW;
       }
