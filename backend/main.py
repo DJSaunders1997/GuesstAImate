@@ -13,6 +13,16 @@ from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
 from ai_service import AIService, EXT_MAP, MAX_AUDIO_BYTES
+from models import (
+    AddResponse,
+    DeleteResponse,
+    EditResponse,
+    HealthResponse,
+    ImageRequest,
+    ImageResponse,
+    MultiResponse,
+    TrackResponse,
+)
 
 load_dotenv()
 
@@ -22,6 +32,8 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# ── APP ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="GuesstAImate API")
 
@@ -164,10 +176,10 @@ def _build_multi_response(result: dict, transcript: str) -> dict:
     return {"intent": "multi", "actions": actions, "transcript": transcript}
 
 
-@app.post("/track")
+@app.post("/track", response_model=TrackResponse)
 async def track(
-    audio: UploadFile = File(...),
-    entries: str = Form(default="[]"),
+    audio: UploadFile = File(..., description="Recorded audio file (webm/ogg/mp4)"),
+    entries: str = Form(default="[]", description="JSON array of today's log entries for edit/delete context"),
 ):
     """Transcribe audio and classify intent (add / edit / delete / multi).
 
@@ -226,24 +238,19 @@ async def track(
             os.unlink(tmp_path)
 
 
-@app.post("/image")
-async def generate_image(request: Request):
-    """Generate a DALL-E food image for a given food name.
-
-    Accepts JSON: {"food": "scrambled eggs on toast"}
-    Returns:      {"data_url": "data:image/png;base64,..."}
-    """
-    body = await request.json()
-    food = str(body.get("food", "")).strip()
+@app.post("/image", response_model=ImageResponse)
+async def generate_image(body: ImageRequest):
+    """Generate a DALL-E 2 food image for a given food name."""
+    food = body.food.strip()
     if not food:
         raise HTTPException(status_code=400, detail="food field is required.")
     data_url = ai.generate_food_image(food)
-    return {"data_url": data_url}
+    return ImageResponse(data_url=data_url)
 
 
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+@app.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    return HealthResponse(status="ok")
 
 
 # ---------------------------------------------------------------------------
