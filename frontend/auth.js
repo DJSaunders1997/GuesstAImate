@@ -57,6 +57,10 @@ function renderAuthUI(user) {
         <button class="auth-btn auth-signout" onclick="signOutUser()" title="Sign out">Sign out</button>
       </div>`;
   } else {
-    el.innerHTML = `<button class="auth-btn auth-signin" onclick="signInWithGoogle()">Sign in with Google</button>`;
+    el.innerHTML = `
+      <div class="auth-widget">
+        <button class="auth-btn auth-signin" onclick="signInWithGoogle()">&#9925; Sign in</button>
+        <span class="auth-tooltip">Sign in with Google to sync your food log across devices &amp; browsers. Your existing local data will be migrated automatically.</span>
+      </div>`;
   }
 }
