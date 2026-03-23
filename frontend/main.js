@@ -34,7 +34,10 @@ let selectedDate = new Date();
 
 // Warm-up ping — fires immediately on page load so the Azure Container App
 // (which scales to zero when idle) is awake before the user starts recording.
-fetch(`${BACKEND_URL}/health`).catch(() => {});
+console.log('[/health] GET', `${BACKEND_URL}/health`);
+fetch(`${BACKEND_URL}/health`)
+  .then(res => console.log('[/health] response status:', res.status))
+  .catch(err => console.warn('[/health] warm-up ping failed:', err));
 
 // ── DOM REFERENCES ────────────────────────────────────────────────────────────
 // Declared as globals so recording.js and render.js can access them at runtime.

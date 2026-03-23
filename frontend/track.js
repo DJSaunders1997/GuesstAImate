@@ -28,17 +28,20 @@ async function fetchAndCacheFoodImage(food) {
     const firestoreUrl = await getGlobalFirestoreImage(food);
     if (firestoreUrl) { _applyImageToEntries(food, firestoreUrl); return; }
     // 3. Generate via DALL-E (costs money — only reached on first-ever log of this food)
+    console.log('[/image] POST', `${BACKEND_URL}/image`, '— food:', food);
     const res = await fetch(`${BACKEND_URL}/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'omit',
       body: JSON.stringify({ food }),
     });
-    if (!res.ok) return;
+    console.log('[/image] response status:', res.status);
+    if (!res.ok) { console.warn('[/image] non-OK response for food:', food); return; }
     const { data_url } = await res.json();
+    console.log('[/image] received data_url length:', data_url?.length, 'for food:', food);
     setCachedImage(food, data_url);
     _applyImageToEntries(food, data_url);
-  } catch { /* non-critical; silently skip */ }
+  } catch (err) { console.warn('[/image] fetch failed for food:', food, err); }
 }
 
 function _applyImageToEntries(food, dataUrl) {
