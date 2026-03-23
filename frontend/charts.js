@@ -118,6 +118,12 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
   const times  = ms;
   const xOf    = t => PAD.left + ((t - minT) / tRange) * cW;
 
+  // For today's chart, the flat tail ends at now; for past days it goes to 24:00.
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+  const isToday = dayBase.getTime() === todayMidnight.getTime();
+  const rightEdgeT = isToday ? Math.min(Date.now(), maxT) : maxT;
+  const rightEdgeX = Math.max(PAD.left, Math.min(PAD.left + cW, xOf(rightEdgeT)));
+
   // Cumulative totals per series.
   const cumSeries = series.map(s => {
     let acc = 0;
@@ -192,14 +198,14 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
         ctx.lineTo(xOf(times[i]), yOf(cum[i - 1])); // hold flat
         ctx.lineTo(xOf(times[i]), yOf(cum[i]));     // step up
       }
-      // Extend flat to the right edge of the chart (24:00) after the last entry.
-      ctx.lineTo(PAD.left + cW, yOf(cum[cum.length - 1]));
+      // Extend flat to the right edge (24:00 for past days, now for today).
+      ctx.lineTo(rightEdgeX, yOf(cum[cum.length - 1]));
     };
 
     // Filled area under the step path.
     ctx.beginPath();
     buildStepPath();
-    ctx.lineTo(PAD.left + cW, yOf(0));
+    ctx.lineTo(rightEdgeX, yOf(0));
     ctx.closePath();
     ctx.fillStyle = colour.fill;
     ctx.fill();
