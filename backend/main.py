@@ -75,12 +75,92 @@ async def log_requests(request: Request, call_next):
     return response
 
 
+def _parse_entries(entries: str) -> list[dict]:
+    try:
+        parsed = json.loads(entries)
+        return parsed if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+
+def _transcribe(data: bytes, content_type: str) -> tuple[str, str]:
+    suffix = EXT_MAP.get(content_type, ".webm")
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(data)
+            tmp_path = tmp.name
+        return ai.transcribe_audio(tmp_path), tmp_path
+    except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
+
+
+def _build_add_response(result: dict, transcript: str) -> dict:
+    items = ai.normalise_add_items(result.get("items", []))
+    return {"intent": "add", "items": items, "transcript": transcript}
+
+
+def _build_edit_response(result: dict, transcript: str) -> dict:
+    entry_id = result.get("entry_id")
+    if entry_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not identify which entry to edit. Try being more specific.",
+        )
+    return {
+        "intent": "edit",
+        "entry_id": entry_id,
+        "updates": result.get("updates", {}),
+        "transcript": transcript,
+    }
+
+
+def _build_delete_response(result: dict, transcript: str) -> dict:
+    entry_id = result.get("entry_id")
+    if entry_id is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Could not identify which entry to delete. Try being more specific.",
+        )
+    return {"intent": "delete", "entry_id": entry_id, "transcript": transcript}
+
+
+def _process_multi_action(action: dict) -> dict:
+    sub_intent = action.get("intent")
+    if sub_intent == "add":
+        return {"intent": "add", "items": ai.normalise_add_items(action.get("items", []))}
+    if sub_intent == "edit":
+        entry_id = action.get("entry_id")
+        if entry_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not identify which entry to edit. Try being more specific.",
+            )
+        return {"intent": "edit", "entry_id": entry_id, "updates": action.get("updates", {})}
+    if sub_intent == "delete":
+        entry_id = action.get("entry_id")
+        if entry_id is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not identify which entry to delete. Try being more specific.",
+            )
+        return {"intent": "delete", "entry_id": entry_id}
+    raise HTTPException(status_code=422, detail=f"Unknown sub-intent in multi: {sub_intent}")
+
+
+def _build_multi_response(result: dict, transcript: str) -> dict:
+    actions = [_process_multi_action(a) for a in result.get("actions", [])]
+    return {"intent": "multi", "actions": actions, "transcript": transcript}
+
+
 @app.post("/track")
 async def track(
     audio: UploadFile = File(...),
     entries: str = Form(default="[]"),
 ):
-    """Transcribe audio and classify intent (add / edit / delete).
+    """Transcribe audio and classify intent (add / edit / delete / multi).
 
     Accepts:
       - audio:   the recorded audio file
@@ -88,9 +168,10 @@ async def track(
                  used as context for edit/delete matching
 
     Returns one of:
-      {"intent": "add",    "items": [...],    "transcript": "..."}
-      {"intent": "edit",   "entry_id": <int>, "updates": {...}, "transcript": "..."}
-      {"intent": "delete", "entry_id": <int>, "transcript": "..."}
+      {"intent": "add",    "items": [...],                        "transcript": "..."}
+      {"intent": "edit",   "entry_id": <int>, "updates": {...},  "transcript": "..."}
+      {"intent": "delete", "entry_id": <int>,                    "transcript": "..."}
+      {"intent": "multi",  "actions": [...],                      "transcript": "..."}
     """
     data = await audio.read()
     if len(data) == 0:
@@ -98,23 +179,12 @@ async def track(
     if len(data) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio file exceeds 25 MB limit.")
 
-    try:
-        existing_entries = json.loads(entries)
-        if not isinstance(existing_entries, list):
-            existing_entries = []
-    except (json.JSONDecodeError, ValueError):
-        existing_entries = []
-
+    existing_entries = _parse_entries(entries)
     content_type = (audio.content_type or "audio/webm").split(";")[0].strip()
-    suffix = EXT_MAP.get(content_type, ".webm")
 
     tmp_path = None
     try:
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(data)
-            tmp_path = tmp.name
-
-        transcript_text = ai.transcribe_audio(tmp_path)
+        transcript_text, tmp_path = _transcribe(data, content_type)
         logger.info("Whisper transcript: %s", transcript_text)
 
         if not transcript_text:
@@ -125,38 +195,15 @@ async def track(
         result = ai.classify_intent(transcript_text, existing_entries)
         intent = result.get("intent", "add")
 
-        if intent == "add":
-            items = ai.normalise_add_items(result.get("items", []))
-            return {"intent": "add", "items": items, "transcript": transcript_text}
-
-        if intent == "edit":
-            entry_id = result.get("entry_id")
-            if entry_id is None:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Could not identify which entry to edit. Try being more specific.",
-                )
-            return {
-                "intent": "edit",
-                "entry_id": entry_id,
-                "updates": result.get("updates", {}),
-                "transcript": transcript_text,
-            }
-
-        if intent == "delete":
-            entry_id = result.get("entry_id")
-            if entry_id is None:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Could not identify which entry to delete. Try being more specific.",
-                )
-            return {
-                "intent": "delete",
-                "entry_id": entry_id,
-                "transcript": transcript_text,
-            }
-
-        raise HTTPException(status_code=422, detail=f"Unknown intent: {intent}")
+        handlers = {
+            "add": _build_add_response,
+            "edit": _build_edit_response,
+            "delete": _build_delete_response,
+            "multi": _build_multi_response,
+        }
+        if intent not in handlers:
+            raise HTTPException(status_code=422, detail=f"Unknown intent: {intent}")
+        return handlers[intent](result, transcript_text)
 
     except json.JSONDecodeError:
         raise HTTPException(

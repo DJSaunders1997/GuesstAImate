@@ -31,11 +31,13 @@ _SYSTEM_PROMPT = (
     "The user speaks naturally to either:\n"
     "  1. Log new food they ate → intent 'add'\n"
     "  2. Correct an existing log entry → intent 'edit'\n"
-    "  3. Remove an existing log entry → intent 'delete'\n\n"
+    "  3. Remove an existing log entry → intent 'delete'\n"
+    "  4. Do multiple of the above at once → intent 'multi'\n\n"
     "Classify intent from natural language cues:\n"
     "  'add': 'I had', 'I ate', 'I just had', 'I drank', describing food without reference to corrections.\n"
     "  'edit': 'change', 'correct', 'actually', 'it was', 'not X', 'should be', 'update', 'fix', 'wrong', 'put X in as Y'.\n"
-    "  'delete': 'remove', 'delete', 'scratch that', 'ignore the', 'take off', 'get rid of'.\n\n"
+    "  'delete': 'remove', 'delete', 'scratch that', 'ignore the', 'take off', 'get rid of'.\n"
+    "  'multi': the message clearly contains two or more distinct operations of any type combined in one utterance.\n\n"
     "For 'add': split into individual items, estimate calories/protein/carbs/fat/fibre for each. "
     "Extract time references (HH:MM 24h). Map meal names: "
     "breakfast=07:30, brunch=10:00, lunch=12:30, afternoon tea=15:30, dinner=18:30, supper=19:30. Null if no time. "
@@ -46,6 +48,9 @@ _SYSTEM_PROMPT = (
     'Return: {"intent": "edit", "entry_id": <id>, "updates": {"calories": 400}}\n\n'
     "For 'delete': match the user's description to an existing log entry. "
     'Return: {"intent": "delete", "entry_id": <id>}\n\n'
+    "For 'multi': return each distinct operation as a separate action object inside an 'actions' array. "
+    "Each action must be a fully-formed add/edit/delete object (same format as above, including the 'intent' field). "
+    'Return: {"intent": "multi", "actions": [{"intent": "delete", "entry_id": <id>}, {"intent": "add", "items": [...]}]}\n\n'
     "No markdown, no explanation — just the JSON object."
 )
 
@@ -86,7 +91,7 @@ class AIService:
                 {"role": "user", "content": user_message},
             ],
             temperature=0.3,
-            max_tokens=600,
+            max_tokens=1000,
         )
         raw = completion.choices[0].message.content.strip()
         logger.info("GPT response: %s", raw)
