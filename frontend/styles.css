@@ -43,6 +43,24 @@ header h1 .ai { color: var(--primary); }
 }
 #macro-totals strong { color: var(--text); }
 
+/* ── AUTH ────────────────────────────────────────── */
+#auth-section {
+  margin-top: 0.6rem;
+}
+.auth-btn {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.auth-btn:hover { border-color: var(--primary); color: var(--primary); }
+.auth-signed-in { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
+.auth-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+
 /* ── RECORD SECTION ─────────────────────────────── */
 .record-section {
   display: flex;
