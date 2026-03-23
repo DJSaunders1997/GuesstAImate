@@ -27,8 +27,10 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 - ⚙️ **Editable targets** — set your own daily calorie and macro goals
 - 💬 **Live transcription** — words appear on screen as you speak
 - 🔥 **Streak tracking** — consecutive logging days shown in the header
-- 📱 **Installable** — add to home screen on Android or iPhone (PWA)
+- � **Trends** — slide-up panel showing daily bar chart, calorie bank (cumulative deficit/surplus), and a consistency heatmap across 7, 30, or 90 days
+- �📱 **Installable** — add to home screen on Android or iPhone (PWA)
 - 💾 **No account needed** — everything lives in your browser's localStorage; sign in with Google to sync your full history across all devices. All historical data migrates automatically on first sign-in and is preserved locally even when signed out
+- 🖼️ **Food thumbnails** — each log entry gets a DALL-E generated illustration in a consistent flat-lay icon style; images are cached locally so repeat foods (e.g. your daily flat white) never cost an extra API call
 
 ---
 
@@ -50,8 +52,7 @@ For developer docs (file breakdown, PWA, local dev, deployment) → see [fronten
 
 1. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
 2. **Meal templates / favourites** — save a common meal (e.g. "my usual lunch") and log it in one tap
-3. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
-4. **Water intake logging** — track hydration alongside food, with a daily target
-5. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
-6. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
-7. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)
+3. **Water intake logging** — track hydration alongside food, with a daily target
+4. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
+5. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
+6. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)

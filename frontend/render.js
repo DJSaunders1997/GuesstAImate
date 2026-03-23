@@ -356,8 +356,12 @@ function renderLogs() {
     const c  = Math.round(entry.carbs   || 0);
     const f  = Math.round(entry.fat     || 0);
     const fi = Math.round(entry.fibre   || 0);
+    const cached = getCachedImage(entry.food);
+    const thumbSrc   = cached ? `src="${cached}"` : '';
+    const thumbClass = cached ? 'log-thumb' : 'log-thumb log-thumb--loading';
     return `
       <div class="log-entry" data-id="${entry.id}">
+        <img class="${thumbClass}" ${thumbSrc} data-food="${escapeHtml(entry.food)}" alt="" aria-hidden="true">
         <div class="log-left">
           <div class="log-food">${escapeHtml(entry.food)}</div>
           <div class="log-time">${time}</div>
@@ -375,6 +379,18 @@ function renderLogs() {
         </div>
       </div>`;
   }).join('');
+
+  // Kick off image fetches for any entries not yet cached (fire-and-forget).
+  if (typeof fetchAndCacheFoodImage === 'function') {
+    const seen = new Set();
+    for (const entry of dayLogs) {
+      const key = entry.food.toLowerCase().trim();
+      if (!seen.has(key) && !getCachedImage(entry.food)) {
+        seen.add(key);
+        fetchAndCacheFoodImage(entry.food);
+      }
+    }
+  }
 
   renderCharts(dayLogs);
   applyCollapseState();
