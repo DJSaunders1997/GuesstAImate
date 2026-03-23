@@ -57,6 +57,7 @@ document.getElementById('export-btn').addEventListener('click', downloadCSV);
 // ── INIT ──────────────────────────────────────────────────────────────────────
 
 renderLogs();
+initAuth();
 
 // ── IOS INSTALL NUDGE ────────────────────────────────────────────────────────
 // iOS Safari never fires beforeinstallprompt, so we show our own banner
