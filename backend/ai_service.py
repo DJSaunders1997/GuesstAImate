@@ -12,7 +12,6 @@ from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 
-# ── FILE HANDLING CONSTANTS ───────────────────────────────────────────────────
 
 EXT_MAP: dict[str, str] = {
     "audio/ogg": ".ogg",
@@ -24,7 +23,6 @@ EXT_MAP: dict[str, str] = {
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Whisper API hard limit: 25 MB
 
-# ── SYSTEM PROMPT ─────────────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = (
     "You are a nutrition assistant managing a food log. "
@@ -54,7 +52,6 @@ _SYSTEM_PROMPT = (
     "No markdown, no explanation — just the JSON object."
 )
 
-# ── SERVICE CLASS ─────────────────────────────────────────────────────────────
 
 
 class AIService:
@@ -73,7 +70,6 @@ class AIService:
     def __init__(self, client: OpenAI) -> None:
         self._client = client
 
-    # ── Private ────────────────────────────────────────────────────────────
 
     def _build_user_message(self, transcript: str, existing_entries: list[dict]) -> str:
         """Prepend today's log entries as context for edit/delete requests."""
@@ -101,7 +97,6 @@ class AIService:
             logger.error("Failed to parse GPT JSON: %s", raw)
             raise
 
-    # ── Public ────────────────────────────────────────────────────────────
 
     def transcribe_audio(self, tmp_path: str) -> str:
         """Transcribe an audio file via Whisper-1 and return the transcript text."""

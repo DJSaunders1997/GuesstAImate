@@ -33,7 +33,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── APP ───────────────────────────────────────────────────────────────────────
 
 app = FastAPI(title="GuesstAImate API")
 
