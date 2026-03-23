@@ -157,11 +157,13 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
     ctx.fillText(v + (unit || ''), PAD.left - 6, y + 3);
   }
 
-  // X-axis: fixed hour markers across the 07:00–24:00 window.
+  // X-axis: fewer ticks for multi-series charts to avoid crowding.
   ctx.fillStyle = MUTED;
   ctx.textAlign = 'center';
   ctx.font      = '10px system-ui,sans-serif';
-  const tickHours = [7, 10, 13, 16, 19, 22, 24];
+  const tickHours = series.length === 1
+    ? [7, 10, 13, 16, 19, 22, 24]   // calorie chart — more detail
+    : [7, 13, 19, 24];               // macro charts — sparse
   tickHours.forEach(h => {
     const t = new Date(dayBase); t.setHours(h, 0, 0, 0);
     if (t.getTime() < minT) return; // skip if axis was extended earlier
