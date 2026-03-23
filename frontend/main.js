@@ -32,12 +32,22 @@ if (window.location.hostname === 'localhost' || window.location.hostname === '0.
  */
 let selectedDate = new Date();
 
-// Warm-up ping — fires immediately on page load so the Azure Container App
-// (which scales to zero when idle) is awake before the user starts recording.
-console.log('[/health] GET', `${BACKEND_URL}/health`);
-fetch(`${BACKEND_URL}/health`)
-  .then(res => console.log('[/health] response status:', res.status))
-  .catch(err => console.warn('[/health] warm-up ping failed:', err));
+// Warm-up ping — fires on page load and periodically while the tab is open
+// so the Azure Container App (which scales to zero when idle) stays awake.
+function _pingHealth() {
+  console.log('[/health] GET', `${BACKEND_URL}/health`);
+  fetch(`${BACKEND_URL}/health`)
+    .then(res => console.log('[/health] response status:', res.status))
+    .catch(err => console.warn('[/health] warm-up ping failed:', err));
+}
+
+_pingHealth();
+
+// Re-ping every minute while the tab is visible to avoid scale-to-zero.
+setInterval(() => { if (document.visibilityState === 'visible') _pingHealth(); }, 60 * 1000);
+
+// Re-ping when the user switches back to this tab after being away.
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') _pingHealth(); });
 
 // ── DOM REFERENCES ────────────────────────────────────────────────────────────
 // Declared as globals so recording.js and render.js can access them at runtime.

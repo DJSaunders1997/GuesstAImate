@@ -14,15 +14,22 @@
 
 const FIELD_LABELS = { calories: 'kcal', protein: 'g protein', carbs: 'g carbs', fat: 'g fat', fibre: 'g fibre', food: '' };
 
+// Tracks foods currently being fetched to prevent duplicate concurrent requests.
+const _imageFetchInFlight = new Set();
+
 /**
  * Fetches a DALL-E image for `food` (using the local cache), then updates
  * any rendered log-entry thumbnails that have a matching data-food attribute.
  * Fire-and-forget — callers do not await this.
  */
 async function fetchAndCacheFoodImage(food) {
+  const key = food.toLowerCase().trim();
   // 1. localStorage hit — instant
   const cached = getCachedImage(food);
   if (cached) { _applyImageToEntries(food, cached); return; }
+  // Deduplicate concurrent fetches for the same food
+  if (_imageFetchInFlight.has(key)) return;
+  _imageFetchInFlight.add(key);
   try {
     // 2. Global Firestore cache — free, shared across all users
     const firestoreUrl = await getGlobalFirestoreImage(food);
@@ -42,6 +49,7 @@ async function fetchAndCacheFoodImage(food) {
     setCachedImage(food, data_url);
     _applyImageToEntries(food, data_url);
   } catch (err) { console.warn('[/image] fetch failed for food:', food, err); }
+  finally { _imageFetchInFlight.delete(key); }
 }
 
 function _applyImageToEntries(food, dataUrl) {
@@ -199,7 +207,18 @@ async function processAudio() {
 
   try {
     const formData = _buildFormData();
-    const result   = await _postToBackend(formData);
+    // Show a warming-up hint if the backend takes more than 4 seconds to respond
+    // (Azure Container Apps can have a cold-start delay after scaling to zero).
+    const warmupHint = setTimeout(
+      () => setStatus('Backend warming up, please wait…', ''),
+      4000
+    );
+    let result;
+    try {
+      result = await _postToBackend(formData);
+    } finally {
+      clearTimeout(warmupHint);
+    }
     const { intent, transcript } = result;
 
     transcriptEl.textContent = `"${transcript}"`;
