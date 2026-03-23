@@ -19,6 +19,7 @@ from models import (
     ImageRequest,
     ImageResponse,
     PhotoLogRequest,
+    TextTrackRequest,
     TrackResponse,
 )
 
@@ -243,6 +244,36 @@ async def generate_image(body: ImageRequest):
         raise HTTPException(status_code=400, detail="food field is required.")
     data_url = ai.generate_food_image(food)
     return ImageResponse(data_url=data_url)
+
+
+@app.post("/track-text", response_model=TrackResponse)
+async def track_text(body: TextTrackRequest):
+    """Classify intent from plain typed text, skipping Whisper transcription."""
+    text = body.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text field is required.")
+    if len(text) > 1000:
+        raise HTTPException(status_code=400, detail="Text must be 1000 characters or fewer.")
+    existing_entries = _parse_entries(body.entries)
+    try:
+        result = ai.classify_intent(text, existing_entries)
+        intent = result.get("intent", "add")
+        handlers = {
+            "add": _build_add_response,
+            "edit": _build_edit_response,
+            "delete": _build_delete_response,
+            "multi": _build_multi_response,
+        }
+        if intent not in handlers:
+            raise HTTPException(status_code=422, detail=f"Unknown intent: {intent}")
+        return handlers[intent](result, text)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail="AI returned an unexpected format. Please try again.",
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=500, detail=f"AI response missing field: {exc}")
 
 
 @app.post("/log-photo", response_model=AddResponse)

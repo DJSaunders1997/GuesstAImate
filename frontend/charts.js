@@ -133,13 +133,14 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
   // Scale the y-axis to fit both data and target reference lines.
   const dataMax    = Math.max(...cumSeries.map(cum => cum[cum.length - 1]));
   const targetMax  = Math.max(0, ...series.map(s => s.target || 0));
-  const overallMax = Math.max(dataMax, targetMax);
+  // Use the target as the default y-axis ceiling; expand only if data exceeds it.
+  const overallMax = Math.max(targetMax, dataMax);
   // Round the y-axis ceiling to a "nice" number so grid labels land on clean values.
   const _niceMax = (v) => {
     if (v <= 0) return 10;
     const mag  = Math.pow(10, Math.floor(Math.log10(v)));
     const step = mag >= 500 ? mag : mag / 2;
-    return Math.ceil((v * 1.15) / step) * step;
+    return Math.ceil((v * 1.05) / step) * step;
   };
   const yAxisMax = _niceMax(overallMax);
   const yOf      = v => PAD.top + cH - (v / (yAxisMax || 1)) * cH;

@@ -177,6 +177,88 @@ header h1 .ai { color: var(--primary); }
   margin-top: 0.25rem;
 }
 
+#text-btn {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid var(--bg);
+  background: var(--surface);
+  color: #fff;
+  font-size: 1.3rem;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  line-height: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+#text-btn:hover:not(:disabled) { transform: scale(1.1); background: var(--border); }
+#text-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+
+#text-track-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  padding: 1.25rem;
+  width: min(340px, 90vw);
+  margin: auto;
+}
+#text-track-dialog::backdrop { background: rgba(0,0,0,0.55); }
+.text-track-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+#text-track-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+#text-track-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+#text-track-input::placeholder { color: var(--muted); }
+#text-track-input:focus { border-color: var(--primary); }
+.text-track-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.text-track-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.text-track-cancel:hover { color: var(--text); border-color: var(--text); }
+#text-track-btn {
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+#text-track-btn:disabled { opacity: 0.4; cursor: default; }
+
 /* ── LOG LIST ───────────────────────────────────── */
 .logs-section {
   flex: 1;

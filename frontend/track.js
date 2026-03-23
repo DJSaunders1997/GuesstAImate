@@ -200,6 +200,53 @@ function triggerPhotoLog() {
   document.getElementById('photo-input').click();
 }
 
+function openTextTrack() {
+  const dialog = document.getElementById('text-track-dialog');
+  dialog.showModal();
+  document.getElementById('text-track-input').focus();
+}
+
+async function submitTextTrack(e) {
+  e.preventDefault();
+  const input  = document.getElementById('text-track-input');
+  const text   = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  document.getElementById('text-track-dialog').close();
+  setStatus('Parsing…', '');
+  transcriptEl.textContent = '';
+
+  const todayStr     = selectedDate.toDateString();
+  const todayEntries = getLogs()
+    .filter(l => new Date(l.timestamp).toDateString() === todayStr)
+    .map(({ id, food, calories, protein, carbs, fat, fibre }) =>
+      ({ id, food, calories, protein, carbs, fat, fibre })
+    );
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/track-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify({ text, entries: JSON.stringify(todayEntries) }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Server error (${res.status})`);
+    }
+    const result = await res.json();
+    transcriptEl.textContent = `"${text}"`;
+    const handlers = { add: _handleAdd, edit: _handleEdit, delete: _handleDelete, multi: _handleMulti };
+    const handler  = handlers[result.intent];
+    if (!handler) throw new Error(`Unknown intent: ${result.intent}`);
+    await handler(result, text);
+  } catch (err) {
+    transcriptEl.textContent = '';
+    setStatus(`Error: ${err.message}`, 'error');
+  }
+}
+
 document.getElementById('photo-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   e.target.value = ''; // reset so the same file can be picked again

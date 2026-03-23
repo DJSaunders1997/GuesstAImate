@@ -80,6 +80,11 @@ class ImageResponse(BaseModel):
     data_url: str = Field(..., description="Base64-encoded PNG as a data URL (data:image/png;base64,...)")
 
 
+class TextTrackRequest(BaseModel):
+    text: str = Field(..., description="Plain-text food log entry (typed by user, skips Whisper)", examples=["had a chicken sandwich and a diet coke"])
+    entries: str = Field(default="[]", description="JSON array of today's log entries for edit/delete context")
+
+
 class PhotoLogRequest(BaseModel):
     image_b64: str = Field(..., description="Base64-encoded JPEG image (resize to ≤512 px before sending)")
 

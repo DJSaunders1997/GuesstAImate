@@ -41,14 +41,26 @@
 <div class="record-section">
   <div class="record-btns">
     <button id="record-btn" aria-label="Record">🎙️</button>
+    <button id="text-btn" onclick="openTextTrack()" title="Type what you ate" aria-label="Type food entry">✏️</button>
     <button id="photo-btn" onclick="triggerPhotoLog()" title="Log food from a photo" aria-label="Log from photo">📷</button>
   </div>
-  <!-- satellite layout: photo-btn is absolutely positioned inside record-btns -->
+  <!-- satellite layout: text-btn above photo-btn, both absolutely positioned inside record-btns -->
   <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
   <canvas id="waveform" hidden></canvas>
-  <div id="status">🎙️ Record to add, edit or remove foods &nbsp;·&nbsp; 📷 Photo to log a meal</div>
+  <div id="status">Tell us what you ate - voice, photo, or text</div>
   <div id="transcript"></div>
 </div>
+
+<dialog id="text-track-dialog">
+  <p class="text-track-label">What did you eat?</p>
+  <form id="text-track-form" onsubmit="submitTextTrack(event)" autocomplete="off">
+    <input id="text-track-input" type="text" placeholder="e.g. 2 eggs and toast…" maxlength="1000" aria-label="Type food entry" />
+    <div class="text-track-actions">
+      <button type="button" class="text-track-cancel" onclick="document.getElementById('text-track-dialog').close()">Cancel</button>
+      <button type="submit" id="text-track-btn">↵ Submit</button>
+    </div>
+  </form>
+</dialog>
 
 <div class="logs-section">
   <div class="logs-header">
