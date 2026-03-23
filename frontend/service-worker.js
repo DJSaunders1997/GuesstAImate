@@ -6,6 +6,7 @@ const PRECACHE = [
   './storage.js',
   './render.js',
   './charts.js',
+  './track.js',
   './recording.js',
   './auth.js',
   './firebase.js',
