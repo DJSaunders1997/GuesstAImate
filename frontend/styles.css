@@ -853,7 +853,8 @@ footer a:hover { color: var(--primary); }
 
 #trends-bar-chart,
 #trends-deficit-chart,
-#trends-heatmap {
+#trends-heatmap,
+#trends-rhythm-chart {
   display: block;
   width: 100%;
   border-radius: 8px;

@@ -27,7 +27,7 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 - ⚙️ **Editable targets** — set your own daily calorie and macro goals
 - 💬 **Live transcription** — words appear on screen as you speak
 - 🔥 **Streak tracking** — consecutive logging days shown in the header
-- � **Trends** — slide-up panel showing daily bar chart, calorie bank (cumulative deficit/surplus), and a consistency heatmap across 7, 30, or 90 days
+- 📈 **Trends** — slide-up panel showing daily bar chart, calorie bank (cumulative deficit/surplus), consistency heatmap, and a **daily eating pattern** overlay (see when in the day you tend to eat) across 7, 14, or 30 days
 - �📱 **Installable** — add to home screen on Android or iPhone (PWA)
 - 💾 **No account needed** — everything lives in your browser's localStorage; sign in with Google to sync your full history across all devices. All historical data migrates automatically on first sign-in and is preserved locally even when signed out
 - 🖼️ **Food thumbnails** — each log entry gets a DALL-E generated illustration in a consistent flat-lay icon style; images are cached locally so repeat foods (e.g. your daily flat white) never cost an extra API call

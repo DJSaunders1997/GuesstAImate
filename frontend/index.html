@@ -148,6 +148,14 @@
     <p class="trends-chart-hint" id="hint-heatmap" hidden>Every day coloured by how close you were to your target. Dark = not logged. Rows are Mon&ndash;Sun, columns are weeks.</p>
     <canvas id="trends-heatmap"></canvas>
   </div>
+  <div class="trends-chart-section">
+    <div class="chart-header">
+      <span>Daily Eating Pattern</span>
+      <button class="hint-btn" onclick="toggleTrendsHint('hint-rhythm')" title="What does this chart show?">ⓘ</button>
+    </div>
+    <p class="trends-chart-hint" id="hint-rhythm" hidden>Each faint line is one day&rsquo;s calorie build-up through the day. The bold line is the average. Spikes at midday = lunch-heavy; spikes late at night = late eating.</p>
+    <canvas id="trends-rhythm-chart"></canvas>
+  </div>
 </div>
 
 <!-- Targets dialog -->

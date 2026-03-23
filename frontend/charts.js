@@ -134,13 +134,21 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
   const dataMax    = Math.max(...cumSeries.map(cum => cum[cum.length - 1]));
   const targetMax  = Math.max(0, ...series.map(s => s.target || 0));
   const overallMax = Math.max(dataMax, targetMax);
-  const yOf        = v => PAD.top + cH - (v / (overallMax * 1.15 || 1)) * cH;
+  // Round the y-axis ceiling to a "nice" number so grid labels land on clean values.
+  const _niceMax = (v) => {
+    if (v <= 0) return 10;
+    const mag  = Math.pow(10, Math.floor(Math.log10(v)));
+    const step = mag >= 500 ? mag : mag / 2;
+    return Math.ceil((v * 1.15) / step) * step;
+  };
+  const yAxisMax = _niceMax(overallMax);
+  const yOf      = v => PAD.top + cH - (v / (yAxisMax || 1)) * cH;
 
   // Grid lines and y-axis labels.
   ctx.strokeStyle = BORDER;
   ctx.lineWidth   = 1;
   for (let i = 0; i <= 3; i++) {
-    const v = Math.round((overallMax * 1.15 / 3) * i);
+    const v = Math.round((yAxisMax / 3) * i);
     const y = yOf(v);
     ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
     ctx.fillStyle = MUTED;
@@ -225,10 +233,13 @@ function drawCumulativeChart(canvas, timestamps, series, unit) {
         ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2);
         ctx.fillStyle   = colour.line; ctx.fill();
         ctx.strokeStyle = '#0f172a';   ctx.lineWidth = 1.5; ctx.stroke();
-        ctx.fillStyle   = colour.line;
-        ctx.font        = 'bold 10px system-ui,sans-serif';
-        ctx.textAlign   = 'center';
-        ctx.fillText(v.toLocaleString(), x, y - 8);
+        // Only label the last (most recent) entry to reduce clutter.
+        if (i === cum.length - 1) {
+          ctx.fillStyle = colour.line;
+          ctx.font      = 'bold 10px system-ui,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(v.toLocaleString(), x, y - 8);
+        }
       });
     } else {
       cum.forEach((v, i) => {
@@ -378,6 +389,7 @@ function renderTrends(nDays) {
   drawDailyBarChart(document.getElementById('trends-bar-chart'), totals, key, unit.trim());
   drawCumulativeDeficit(document.getElementById('trends-deficit-chart'), totals, key, unit.trim());
   drawConsistencyHeatmap(document.getElementById('trends-heatmap'), totals, key);
+  drawDailyRhythmChart(document.getElementById('trends-rhythm-chart'), nDays);
 }
 
 /**
@@ -737,4 +749,188 @@ function drawConsistencyHeatmap(canvas, totals, key) {
     ctx.fillText(item.label, legendX + 12, legendY + 8);
     legendX += ctx.measureText(item.label).width + 22;
   });
+}
+
+/**
+ * Draws a "daily rhythm" chart: each logged day overlaid as a cumulative
+ * calorie step-curve through the hours of the day. A bold average line is
+ * drawn on top, making it easy to spot patterns like lunch spikes or
+ * late-night eating.
+ *
+ * Always uses calories (the most meaningful metric for time-of-day patterns).
+ *
+ * @param {HTMLCanvasElement} canvas
+ * @param {number} nDays - How many past days to include (matches trends period).
+ */
+function drawDailyRhythmChart(canvas, nDays) {
+  if (!canvas) return;
+
+  const MUTED  = '#94a3b8';
+  const BORDER = '#334155';
+
+  const logs   = getLogs();
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - (nDays - 1));
+
+  // Group entries by calendar day as {minuteOfDay, calories}.
+  const byDay = {};
+  for (const l of logs) {
+    const d = new Date(l.timestamp);
+    if (d < cutoff) continue;
+    const key = d.toDateString();
+    if (!byDay[key]) byDay[key] = [];
+    byDay[key].push({ minuteOfDay: d.getHours() * 60 + d.getMinutes(), calories: l.calories || 0 });
+  }
+  const dayEntries = Object.values(byDay);
+  dayEntries.forEach(d => d.sort((a, b) => a.minuteOfDay - b.minuteOfDay));
+
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.offsetWidth || canvas.parentElement?.clientWidth || 300;
+  const H   = 180;
+  canvas.width        = W * dpr;
+  canvas.height       = H * dpr;
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  if (dayEntries.length === 0) {
+    ctx.fillStyle = MUTED;
+    ctx.font      = '11px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Log a few days to see your eating pattern', W / 2, H / 2);
+    return;
+  }
+
+  const PAD = { top: 12, right: 12, bottom: 28, left: 48 };
+  const cW  = W - PAD.left - PAD.right;
+  const cH  = H - PAD.top  - PAD.bottom;
+
+  // X axis: 06:00–24:00, extended left only if an entry falls before 06:00.
+  const allMinutes = dayEntries.flatMap(d => d.map(e => e.minuteOfDay));
+  const minMinute  = Math.min(360, ...allMinutes); // 06:00 default
+  const maxMinute  = 1440;                         // 24:00
+  const tRange     = maxMinute - minMinute;
+  const xOf        = m => PAD.left + ((m - minMinute) / tRange) * cW;
+
+  // Y axis: scale to highest day total or target.
+  const dayTotals = dayEntries.map(d => d.reduce((s, e) => s + e.calories, 0));
+  const maxY      = Math.max(DAILY_TARGETS.calories * 1.1, ...dayTotals);
+  const yOf       = v => PAD.top + cH - (v / (maxY * 1.15 || 1)) * cH;
+
+  // Grid lines + y labels.
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 3; i++) {
+    const v = Math.round((maxY * 1.15 / 3) * i);
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillStyle = MUTED;
+    ctx.font      = '10px system-ui,sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(v > 999 ? (v / 1000).toFixed(1) + 'k' : v, PAD.left - 6, y + 3);
+  }
+
+  // X-axis hour labels.
+  ctx.fillStyle = MUTED;
+  ctx.textAlign = 'center';
+  ctx.font      = '10px system-ui,sans-serif';
+  [6, 9, 12, 15, 18, 21, 24].forEach(h => {
+    const m = h * 60;
+    if (m < minMinute) return;
+    const x   = xOf(m);
+    const lbl = h === 24 ? '00:00' : `${String(h).padStart(2, '0')}:00`;
+    ctx.fillText(lbl, x, H - PAD.bottom + 14);
+  });
+
+  // Dashed calorie target line.
+  const ty = yOf(DAILY_TARGETS.calories);
+  ctx.save();
+  ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = MACRO_COLOURS.calories.line;
+  ctx.lineWidth   = 1.5;
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath(); ctx.moveTo(PAD.left, ty); ctx.lineTo(PAD.left + cW, ty); ctx.stroke();
+  ctx.restore();
+
+  // Draw each individual day as a faint step line.
+  const n     = dayEntries.length;
+  const alpha = n <= 3 ? 0.4 : Math.max(0.08, 0.4 - (n - 3) * 0.025);
+  dayEntries.forEach(entries => {
+    ctx.save();
+    ctx.strokeStyle  = MACRO_COLOURS.calories.line;
+    ctx.lineWidth    = 1.5;
+    ctx.globalAlpha  = alpha;
+    ctx.lineJoin     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, yOf(0));
+    let cum = 0;
+    for (const e of entries) {
+      const x = Math.max(PAD.left, Math.min(PAD.left + cW, xOf(e.minuteOfDay)));
+      ctx.lineTo(x, yOf(cum));   // hold flat until this moment
+      cum += e.calories;
+      ctx.lineTo(x, yOf(cum));   // step up
+    }
+    ctx.lineTo(PAD.left + cW, yOf(cum)); // flat tail
+    ctx.stroke();
+    ctx.restore();
+  });
+
+  // Compute average cumulative at every 30-minute mark and draw as bold line.
+  const avgPoints = [];
+  for (let m = minMinute; m <= maxMinute; m += 30) {
+    const cumPerDay = dayEntries.map(entries =>
+      entries.filter(e => e.minuteOfDay <= m).reduce((s, e) => s + e.calories, 0)
+    );
+    avgPoints.push({ m, avg: cumPerDay.reduce((s, v) => s + v, 0) / cumPerDay.length });
+  }
+
+  // Fill under average.
+  ctx.save();
+  ctx.beginPath();
+  avgPoints.forEach(({ m, avg }, i) => {
+    i === 0 ? ctx.moveTo(xOf(m), yOf(avg)) : ctx.lineTo(xOf(m), yOf(avg));
+  });
+  ctx.lineTo(xOf(avgPoints[avgPoints.length - 1].m), yOf(0));
+  ctx.lineTo(xOf(avgPoints[0].m), yOf(0));
+  ctx.closePath();
+  ctx.fillStyle = MACRO_COLOURS.calories.fill;
+  ctx.fill();
+  ctx.restore();
+
+  // Average line.
+  ctx.save();
+  ctx.strokeStyle = MACRO_COLOURS.calories.line;
+  ctx.lineWidth   = 2.5;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  avgPoints.forEach(({ m, avg }, i) => {
+    i === 0 ? ctx.moveTo(xOf(m), yOf(avg)) : ctx.lineTo(xOf(m), yOf(avg));
+  });
+  ctx.stroke();
+  ctx.restore();
+
+  // Legend (top-left of chart area).
+  ctx.save();
+  ctx.font      = '9px system-ui,sans-serif';
+  ctx.textAlign = 'left';
+  const lx = PAD.left + 4;
+  const ly = PAD.top + 7;
+
+  ctx.globalAlpha  = 0.45;
+  ctx.strokeStyle  = MACRO_COLOURS.calories.line;
+  ctx.lineWidth    = 1.5;
+  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 16, ly); ctx.stroke();
+  ctx.globalAlpha  = 1;
+  ctx.fillStyle    = MUTED;
+  ctx.fillText(`each day (${n})`, lx + 20, ly + 3);
+
+  ctx.strokeStyle  = MACRO_COLOURS.calories.line;
+  ctx.lineWidth    = 2.5;
+  ctx.beginPath(); ctx.moveTo(lx + 100, ly); ctx.lineTo(lx + 116, ly); ctx.stroke();
+  ctx.fillStyle    = MUTED;
+  ctx.fillText('average', lx + 120, ly + 3);
+  ctx.restore();
 }
