@@ -1,0 +1,32 @@
+# Copy this file to terraform.tfvars (gitignored) and fill in your real values.
+# Never commit terraform.tfvars — it contains secrets.
+
+# -- Azure ---------------------------------------------------------------------
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "00000000-0000-0000-0000-000000000000"
+location        = "eastus" # must match the region your resources already live in
+
+# -- Container Apps -------------------------------------------------------------
+# Find with: az containerapp env list -g ContainerApps --query '[].name' -o tsv
+container_app_environment_name = ""
+
+# Only set this if the environment was created with a linked Log Analytics workspace.
+# Find with: az containerapp env show -n <env-name> -g ContainerApps --query 'properties.appLogsConfiguration.logAnalyticsConfiguration' -o json
+# Leave as null if there is no workspace.
+log_analytics_workspace_id = null
+
+openai_api_key = "sk-..."
+
+ghcr_username = "djsaunders1997"
+ghcr_password = "ghp_..."  # GitHub PAT (classic) with read:packages scope
+
+# -- Entra ID -------------------------------------------------------------------
+# Find with: az ad app list --all --query '[].{name:displayName,appId:appId}' -o table
+app_registration_display_name = ""
+
+# -- Firebase / Firestore -------------------------------------------------------
+firebase_project_id = "guesstaimate"
+
+# Leave unset (null) to use Application Default Credentials.
+# For CI, set to a service account JSON key with Firebase Rules Admin access.
+# google_credentials = null

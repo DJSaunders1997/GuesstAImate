@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Wrapper around terraform that injects GOOGLE_OAUTH_ACCESS_TOKEN from a local .env.
+#
+# One-time setup:  ./tf setup
+# Normal use:      ./tf plan / ./tf apply / etc.
+# If token expires re-run setup.
+
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ENV_FILE="$DIR/.env"
+
+if [[ "${1:-}" == "setup" ]]; then
+  FIREBASE_CREDS="$HOME/.config/configstore/firebase-tools.json"
+  if [[ ! -f "$FIREBASE_CREDS" ]]; then
+    echo "ERROR: Firebase CLI credentials not found. Run: firebase login"
+    exit 1
+  fi
+  TOKEN=$(python3 -c "
+import json, sys
+with open('$FIREBASE_CREDS') as f:
+    d = json.load(f)
+tok = d.get('tokens', {}).get('access_token', '')
+if not tok:
+    print('ERROR: no access_token found', file=sys.stderr); sys.exit(1)
+print(tok)")
+  echo "GOOGLE_OAUTH_ACCESS_TOKEN=$TOKEN" > "$ENV_FILE"
+  echo "Saved token to $ENV_FILE"
+  exit 0
+fi
+
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "ERROR: .env not found — run ./tf setup first"
+  exit 1
+fi
+
+set -a; source "$ENV_FILE"; set +a
+exec terraform "$@"
