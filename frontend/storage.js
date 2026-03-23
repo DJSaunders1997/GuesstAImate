@@ -50,11 +50,11 @@ async function syncFromFirestore(uid) {
 }
 
 /**
- * Clears in-memory cloud state when the user signs out.
- * Local data is wiped so another user can sign in cleanly.
-*/
+ * Called on sign-out. Local data is intentionally preserved so the user
+ * can still browse their history offline and it will re-sync on next sign-in.
+ */
 function clearCloudState() {
-  localStorage.removeItem(STORAGE_KEY);
+  // no-op: keep localStorage intact on sign-out
 }
 
 /**

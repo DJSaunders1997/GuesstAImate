@@ -28,7 +28,7 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 - 💬 **Live transcription** — words appear on screen as you speak
 - 🔥 **Streak tracking** — consecutive logging days shown in the header
 - 📱 **Installable** — add to home screen on Android or iPhone (PWA)
-- 💾 **No account needed** — everything lives in your browser; optionally sign in with Google to sync across devices and never lose your data
+- 💾 **No account needed** — everything lives in your browser's localStorage; sign in with Google to sync your full history across all devices. All historical data migrates automatically on first sign-in and is preserved locally even when signed out
 
 ---
 
