@@ -39,9 +39,14 @@
 </header>
 
 <div class="record-section">
-  <button id="record-btn" aria-label="Record">🎙️</button>
+  <div class="record-btns">
+    <button id="record-btn" aria-label="Record">🎙️</button>
+    <button id="photo-btn" onclick="triggerPhotoLog()" title="Log food from a photo" aria-label="Log from photo">📷</button>
+  </div>
+  <!-- satellite layout: photo-btn is absolutely positioned inside record-btns -->
+  <input type="file" id="photo-input" accept="image/*" capture="environment" hidden />
   <canvas id="waveform" hidden></canvas>
-  <div id="status">Tap to record what you ate — or to remove / edit foods</div>
+  <div id="status">🎙️ Record to add, edit or remove foods &nbsp;·&nbsp; 📷 Photo to log a meal</div>
   <div id="transcript"></div>
 </div>
 

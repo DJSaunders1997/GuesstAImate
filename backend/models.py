@@ -80,5 +80,9 @@ class ImageResponse(BaseModel):
     data_url: str = Field(..., description="Base64-encoded PNG as a data URL (data:image/png;base64,...)")
 
 
+class PhotoLogRequest(BaseModel):
+    image_b64: str = Field(..., description="Base64-encoded JPEG image (resize to ≤512 px before sending)")
+
+
 class HealthResponse(BaseModel):
     status: Literal["ok"]

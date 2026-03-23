@@ -15,12 +15,10 @@ from openai import OpenAI
 from ai_service import AIService, EXT_MAP, MAX_AUDIO_BYTES
 from models import (
     AddResponse,
-    DeleteResponse,
-    EditResponse,
     HealthResponse,
     ImageRequest,
     ImageResponse,
-    MultiResponse,
+    PhotoLogRequest,
     TrackResponse,
 )
 
@@ -245,6 +243,28 @@ async def generate_image(body: ImageRequest):
         raise HTTPException(status_code=400, detail="food field is required.")
     data_url = ai.generate_food_image(food)
     return ImageResponse(data_url=data_url)
+
+
+@app.post("/log-photo", response_model=AddResponse)
+async def log_photo(body: PhotoLogRequest):
+    """Analyse a food photo with GPT-4o-mini vision and return estimated items."""
+    image_b64 = body.image_b64.strip()
+    if not image_b64:
+        raise HTTPException(status_code=400, detail="image_b64 field is required.")
+    try:
+        result = ai.analyse_photo(image_b64)
+        items = ai.normalise_add_items(result.get("items", []))
+        if not items:
+            raise HTTPException(
+                status_code=422,
+                detail="Could not identify any food in the photo. Try a clearer image or use voice logging.",
+            )
+        return AddResponse(intent="add", items=items, transcript="Photo log")
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=500,
+            detail="AI returned an unexpected format. Please try again.",
+        )
 
 
 @app.get("/health", response_model=HealthResponse)

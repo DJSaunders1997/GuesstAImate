@@ -22,7 +22,7 @@ function initAuth() {
     if (user) {
       setStatus('Syncing…', '');
       await syncFromFirestore(user.uid);
-      setStatus('', '');
+      setStatus('🎙️ Record to add, edit or remove foods · 📷 Photo to log a meal', '');
     } else {
       clearCloudState();
       renderLogs();

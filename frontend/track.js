@@ -196,9 +196,70 @@ async function _handleMulti({ actions }, transcript) {
  *
  * Called by recording.js once the MediaRecorder has stopped.
  */
+function triggerPhotoLog() {
+  document.getElementById('photo-input').click();
+}
+
+document.getElementById('photo-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ''; // reset so the same file can be picked again
+  if (!file) return;
+  await logPhoto(file);
+});
+
+async function _resizeImageToJpeg(file, maxPx = 512) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
+    };
+    img.src = url;
+  });
+}
+
+async function logPhoto(file) {
+  const photoBtn = document.getElementById('photo-btn');
+  photoBtn.disabled = true;
+  photoBtn.classList.add('processing');
+  setStatus('Analysing photo…', '');
+  transcriptEl.textContent = '';
+  try {
+    const image_b64 = await _resizeImageToJpeg(file);
+    console.log('[/log-photo] POST', `${BACKEND_URL}/log-photo`, '— b64 chars:', image_b64.length);
+    const res = await fetch(`${BACKEND_URL}/log-photo`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify({ image_b64 }),
+    });
+    console.log('[/log-photo] response status:', res.status);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Server error (${res.status})`);
+    }
+    const result = await res.json();
+    console.log('[/log-photo] response body:', result);
+    transcriptEl.textContent = '📷 Estimated from photo';
+    _handleAdd(result, result.transcript);
+  } catch (err) {
+    transcriptEl.textContent = '';
+    setStatus(`Error: ${err.message}`, 'error');
+  } finally {
+    photoBtn.disabled = false;
+    photoBtn.classList.remove('processing');
+  }
+}
+
 async function processAudio() {
   if (!speechDetected) {
-    setStatus('Tap to record what you ate — or to remove / edit foods', '');
+    setStatus('🎙️ Record to add, edit or remove foods · 📷 Photo to log a meal', '');
     btn.className   = '';
     btn.textContent = '🎙️';
     btn.disabled    = false;

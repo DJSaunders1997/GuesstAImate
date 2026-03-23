@@ -34,11 +34,15 @@ let selectedDate = new Date();
 
 // Warm-up ping — fires on page load and periodically while the tab is open
 // so the Azure Container App (which scales to zero when idle) stays awake.
+// Retries indefinitely on failure with a 1s delay between attempts.
 function _pingHealth() {
   console.log('[/health] GET', `${BACKEND_URL}/health`);
   fetch(`${BACKEND_URL}/health`)
     .then(res => console.log('[/health] response status:', res.status))
-    .catch(err => console.warn('[/health] warm-up ping failed:', err));
+    .catch(err => {
+      console.warn('[/health] warm-up ping failed, retrying:', err);
+      setTimeout(_pingHealth, 1000);
+    });
 }
 
 _pingHealth();

@@ -24,6 +24,16 @@ EXT_MAP: dict[str, str] = {
 MAX_AUDIO_BYTES = 25 * 1024 * 1024  # Whisper API hard limit: 25 MB
 
 
+_PHOTO_SYSTEM_PROMPT = (
+    "You are a nutrition assistant. The user has sent a photo of food they ate. "
+    "Identify all visible food items and estimate their calories, protein, carbs, fat, and fibre. "
+    "Use standard home or restaurant portion sizes unless the image clearly shows otherwise. "
+    "If the photo is unclear or contains no food, return an empty items list. "
+    'Return JSON only: {"items": [{"food": "desc", "calories": 300, "protein": 10, "carbs": 40, "fat": 8, "fibre": 3}]}\n'
+    "No markdown, no explanation — just the JSON object."
+)
+
+
 _SYSTEM_PROMPT = (
     "You are a nutrition assistant managing a food log. "
     "The user speaks naturally to either:\n"
@@ -140,3 +150,34 @@ class AIService:
         )
         b64 = response.data[0].b64_json
         return f"data:image/png;base64,{b64}"
+
+    def analyse_photo(self, image_b64: str) -> dict:
+        """Send a food photo to GPT-4o-mini vision and return estimated items."""
+        completion = self._client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": _PHOTO_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/jpeg;base64,{image_b64}",
+                                "detail": "low",
+                            },
+                        },
+                        {"type": "text", "text": "What food is in this image? Estimate the nutritional info."},
+                    ],
+                },
+            ],
+            temperature=0.3,
+            max_tokens=800,
+        )
+        raw = completion.choices[0].message.content.strip()
+        logger.info("Photo GPT response: %s", raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            logger.error("Failed to parse photo GPT JSON: %s", raw)
+            raise

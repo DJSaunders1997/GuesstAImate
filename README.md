@@ -31,6 +31,7 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 - �📱 **Installable** — add to home screen on Android or iPhone (PWA)
 - 💾 **No account needed** — everything lives in your browser's localStorage; sign in with Google to sync your full history across all devices. All historical data migrates automatically on first sign-in and is preserved locally even when signed out
 - 🖼️ **Food thumbnails** — each log entry gets a DALL-E generated illustration in a consistent flat-lay icon style; images are cached locally so repeat foods (e.g. your daily flat white) never cost an extra API call
+- 📷 **Photo logging** — tap the camera button, pick a photo of your meal, and get an instant calorie and macro estimate via GPT-4o vision (results are editable; photo estimates are less precise than voice)
 
 ---
 
@@ -53,6 +54,5 @@ For developer docs (file breakdown, PWA, local dev, deployment) → see [fronten
 1. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
 2. **Meal templates / favourites** — save a common meal (e.g. "my usual lunch") and log it in one tap
 3. **Water intake logging** — track hydration alongside food, with a daily target
-4. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
-5. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
-6. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)
+4. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
+5. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)
