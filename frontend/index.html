@@ -9,6 +9,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="GuesstAImate" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/x-icon" href="icons/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/favicon-16x16.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <title>GuesstAImate</title>
   <link rel="stylesheet" href="styles.css" />
@@ -18,6 +21,7 @@
 <header>
   <h1>Guesst<span class="ai">AI</span>mate</h1>
   <button id="targets-btn" onclick="openTargets()" title="Edit daily targets">&#9881;</button>
+  <button id="trends-btn" onclick="openTrends()" title="View trends">&#128200;</button>
   <div id="daily-total"><span id="daily-label">Today</span>: <strong id="total-cal">0</strong> kcal</div>
   <div id="macro-totals">
     <span><span class="macro-p">Protein</span> <strong id="total-protein">0</strong>g</span>
@@ -80,6 +84,8 @@
       </div>
     </div>
   </div>
+
+  <button class="see-trends-btn" onclick="openTrends()">📈 View longer-term trends &rarr;</button>
 </div>
 
 <!-- Voice-action confirmation dialog -->
@@ -90,6 +96,52 @@
       <button id="confirm-yes" class="save-btn">Confirm</button>
       <button id="confirm-no"  class="cancel-btn">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- Trends panel -->
+<div id="trends-overlay" onclick="closeTrends()"></div>
+<div id="trends-panel" role="dialog" aria-modal="true" aria-label="Trends">
+  <div class="trends-header">
+    <span>Trends</span>
+    <button class="trends-close-btn" onclick="closeTrends()" aria-label="Close trends">&#10005;</button>
+  </div>
+  <div class="trends-period">
+    <button class="trends-period-btn active" onclick="selectTrendsPeriod(7, this)">7d</button>
+    <button class="trends-period-btn" onclick="selectTrendsPeriod(14, this)">14d</button>
+    <button class="trends-period-btn" onclick="selectTrendsPeriod(30, this)">30d</button>
+  </div>
+  <div class="trends-metric">
+    <button class="trends-metric-btn active" onclick="selectTrendsMetric('calories', this)">Calories</button>
+    <button class="trends-metric-btn" onclick="selectTrendsMetric('protein', this)">Protein</button>
+    <button class="trends-metric-btn" onclick="selectTrendsMetric('carbs', this)">Carbs</button>
+    <button class="trends-metric-btn" onclick="selectTrendsMetric('fat', this)">Fat</button>
+    <button class="trends-metric-btn" onclick="selectTrendsMetric('fibre', this)">Fibre</button>
+  </div>
+  <div id="trends-stats"></div>
+  <div class="trends-chart-section">
+    <div class="chart-header">
+      <span id="trends-bar-title">Daily Calories</span>
+      <button class="hint-btn" onclick="toggleTrendsHint('hint-bar')" title="What does this chart show?">ⓘ</button>
+    </div>
+    <p class="trends-chart-hint" id="hint-bar" hidden>Each bar = one day&rsquo;s total. Green = at or under your target, amber = slightly over, red = well over. The blue line is your 7-day rolling average.</p>
+    <canvas id="trends-bar-chart"></canvas>
+  </div>
+  <div class="trends-chart-section">
+    <div class="chart-header">
+      <span id="trends-deficit-title">Calorie Bank</span>
+      <button class="hint-btn" onclick="toggleTrendsHint('hint-bank')" title="What does this chart show?">ⓘ</button>
+    </div>
+    <p class="trends-chart-hint" id="hint-bank" hidden>Running cumulative total vs your target. Green fill = you&rsquo;re banking a deficit (good!). Red fill = you&rsquo;re in surplus. Unlogged days hold the line flat &mdash; no penalty for gaps.</p>
+    <canvas id="trends-deficit-chart"></canvas>
+  </div>
+  <div class="trends-chart-section">
+    <div class="chart-header">
+      <span>Consistency</span>
+      <button class="hint-btn" onclick="toggleTrendsHint('hint-heatmap')" title="What does this chart show?">ⓘ</button>
+    </div>
+    <p class="trends-chart-hint" id="hint-heatmap" hidden>Every day coloured by how close you were to your target. Dark = not logged. Rows are Mon&ndash;Sun, columns are weeks.</p>
+    <canvas id="trends-heatmap"></canvas>
   </div>
 </div>
 

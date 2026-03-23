@@ -130,7 +130,10 @@ def _build_delete_response(result: dict, transcript: str) -> dict:
 def _process_multi_action(action: dict) -> dict:
     sub_intent = action.get("intent")
     if sub_intent == "add":
-        return {"intent": "add", "items": ai.normalise_add_items(action.get("items", []))}
+        return {
+            "intent": "add",
+            "items": ai.normalise_add_items(action.get("items", [])),
+        }
     if sub_intent == "edit":
         entry_id = action.get("entry_id")
         if entry_id is None:
@@ -138,7 +141,11 @@ def _process_multi_action(action: dict) -> dict:
                 status_code=422,
                 detail="Could not identify which entry to edit. Try being more specific.",
             )
-        return {"intent": "edit", "entry_id": entry_id, "updates": action.get("updates", {})}
+        return {
+            "intent": "edit",
+            "entry_id": entry_id,
+            "updates": action.get("updates", {}),
+        }
     if sub_intent == "delete":
         entry_id = action.get("entry_id")
         if entry_id is None:
@@ -147,7 +154,9 @@ def _process_multi_action(action: dict) -> dict:
                 detail="Could not identify which entry to delete. Try being more specific.",
             )
         return {"intent": "delete", "entry_id": entry_id}
-    raise HTTPException(status_code=422, detail=f"Unknown sub-intent in multi: {sub_intent}")
+    raise HTTPException(
+        status_code=422, detail=f"Unknown sub-intent in multi: {sub_intent}"
+    )
 
 
 def _build_multi_response(result: dict, transcript: str) -> dict:
@@ -215,6 +224,21 @@ async def track(
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+@app.post("/image")
+async def generate_image(request: Request):
+    """Generate a DALL-E food image for a given food name.
+
+    Accepts JSON: {"food": "scrambled eggs on toast"}
+    Returns:      {"data_url": "data:image/png;base64,..."}
+    """
+    body = await request.json()
+    food = str(body.get("food", "")).strip()
+    if not food:
+        raise HTTPException(status_code=400, detail="food field is required.")
+    data_url = ai.generate_food_image(food)
+    return {"data_url": data_url}
 
 
 @app.get("/health")

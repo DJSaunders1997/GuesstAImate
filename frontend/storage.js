@@ -220,3 +220,93 @@ function getStreak() {
 
   return { current, best };
 }
+
+/**
+ * Aggregates all log entries into per-day totals for the past nDays days.
+ * Days with no logs have all macro values as 0 and logged = false.
+ * Returned array is oldest-first (index 0 = nDays-1 days ago, last = today).
+ * @param {number} nDays - Number of days to include (e.g. 7, 30, 90).
+ * @returns {Array<{date: Date, calories: number, protein: number, carbs: number, fat: number, fibre: number, logged: boolean}>}
+ */
+function getDailyTotals(nDays) {
+  const logs = getLogs();
+  const byDay = {};
+  for (const l of logs) {
+    const key = new Date(l.timestamp).toDateString();
+    if (!byDay[key]) byDay[key] = { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 };
+    byDay[key].calories += l.calories || 0;
+    byDay[key].protein  += l.protein  || 0;
+    byDay[key].carbs    += l.carbs    || 0;
+    byDay[key].fat      += l.fat      || 0;
+    byDay[key].fibre    += l.fibre    || 0;
+  }
+
+  const result = [];
+  for (let i = nDays - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - i);
+    const key = d.toDateString();
+    const totals = byDay[key];
+    result.push({ date: d, logged: !!totals, ...( totals || { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0 }) });
+  }
+  return result;
+}
+
+// ── IMAGE CACHE ───────────────────────────────────────────────────────────────
+// Maps normalised food names → base64 PNG data URLs so DALL-E is only called
+// once per unique food description across all sessions.
+
+const IMAGE_CACHE_KEY = 'guesstaimate_image_cache';
+
+function _imageKey(food) {
+  return food.toLowerCase().trim();
+}
+
+function getCachedImage(food) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
+    return cache[_imageKey(food)] || null;
+  } catch { return null; }
+}
+
+function setCachedImage(food, dataUrl) {
+  const key = _imageKey(food);
+  // Write to localStorage (sync, always)
+  try {
+    const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
+    cache[key] = dataUrl;
+    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(cache));
+  } catch { /* storage full — silently skip */ }
+  // Write to global Firestore cache (any authenticated user contributes)
+  const user = getCurrentUser ? getCurrentUser() : null;
+  if (user) {
+    firebase.firestore()
+      .collection('images').doc(key)
+      .set({ dataUrl })
+      .catch(err => console.error('Firestore image write failed:', err));
+  }
+}
+
+/**
+ * Looks up a food image in the global Firestore cache.
+ * Returns the data URL string, or null if not found.
+ * @param {string} food - Food description.
+ * @returns {Promise<string|null>}
+ */
+async function getGlobalFirestoreImage(food) {
+  try {
+    const doc = await firebase.firestore()
+      .collection('images').doc(_imageKey(food))
+      .get();
+    if (!doc.exists) return null;
+    const dataUrl = doc.data().dataUrl;
+    // Populate localStorage so subsequent renders are instant
+    try {
+      const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
+      cache[_imageKey(food)] = dataUrl;
+      localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(cache));
+    } catch { /* storage full */ }
+    return dataUrl;
+  } catch { return null; }
+}

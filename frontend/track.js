@@ -14,6 +14,43 @@
 
 const FIELD_LABELS = { calories: 'kcal', protein: 'g protein', carbs: 'g carbs', fat: 'g fat', fibre: 'g fibre', food: '' };
 
+/**
+ * Fetches a DALL-E image for `food` (using the local cache), then updates
+ * any rendered log-entry thumbnails that have a matching data-food attribute.
+ * Fire-and-forget — callers do not await this.
+ */
+async function fetchAndCacheFoodImage(food) {
+  // 1. localStorage hit — instant
+  const cached = getCachedImage(food);
+  if (cached) { _applyImageToEntries(food, cached); return; }
+  try {
+    // 2. Global Firestore cache — free, shared across all users
+    const firestoreUrl = await getGlobalFirestoreImage(food);
+    if (firestoreUrl) { _applyImageToEntries(food, firestoreUrl); return; }
+    // 3. Generate via DALL-E (costs money — only reached on first-ever log of this food)
+    const res = await fetch(`${BACKEND_URL}/image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify({ food }),
+    });
+    if (!res.ok) return;
+    const { data_url } = await res.json();
+    setCachedImage(food, data_url);
+    _applyImageToEntries(food, data_url);
+  } catch { /* non-critical; silently skip */ }
+}
+
+function _applyImageToEntries(food, dataUrl) {
+  const key = food.toLowerCase().trim();
+  document.querySelectorAll('.log-thumb[data-food]').forEach(img => {
+    if (img.dataset.food.toLowerCase().trim() === key) {
+      img.src = dataUrl;
+      img.classList.remove('log-thumb--loading');
+    }
+  });
+}
+
 function _buildFormData() {
   const mimeType = mediaRecorder.mimeType || 'audio/webm';
   const blob     = new Blob(audioChunks, { type: mimeType });
@@ -49,6 +86,7 @@ function _handleAdd({ items }, transcript) {
   items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
     addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
   );
+  items.forEach(({ food }) => fetchAndCacheFoodImage(food));
   if (items.length === 1) {
     setStatus(`Logged: ${items[0].food} - ${items[0].calories} kcal`, 'success');
   } else {
@@ -93,6 +131,7 @@ async function _handleMultiAction(action, transcript, summaryParts) {
     action.items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
       addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
     );
+    action.items.forEach(({ food }) => fetchAndCacheFoodImage(food));
     summaryParts.push(
       action.items.length === 1
         ? `added ${action.items[0].food}`

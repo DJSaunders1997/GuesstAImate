@@ -128,3 +128,20 @@ class AIService:
             }
             for item in items_raw
         ]
+
+    def generate_food_image(self, food_name: str) -> str:
+        """Generate a DALL-E 2 image for the given food and return a base64 PNG data URL."""
+        prompt = (
+            f"A flat-lay food illustration of {food_name}. "
+            "Minimal flat design, soft pastel colours, clean dark background, "
+            "simple bold shapes, no text, no shadows, icon style."
+        )
+        response = self._client.images.generate(
+            model="dall-e-2",
+            prompt=prompt,
+            n=1,
+            size="256x256",
+            response_format="b64_json",
+        )
+        b64 = response.data[0].b64_json
+        return f"data:image/png;base64,{b64}"

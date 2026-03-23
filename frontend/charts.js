@@ -17,7 +17,7 @@ const MACRO_COLOURS = {
 };
 
 /** General adult daily targets — used when the user has not customised them. */
-const TARGET_DEFAULTS = { calories: 2000, protein: 50, carbs: 260, fat: 70, fibre: 30 };
+const TARGET_DEFAULTS = { calories: 1900, protein: 165, carbs: 164, fat: 65, fibre: 38 };
 
 /** Active daily targets, merged from defaults and any user-saved overrides. */
 let DAILY_TARGETS = Object.assign({}, TARGET_DEFAULTS,
@@ -289,5 +289,452 @@ function renderCharts(dayLogs) {
   const hasSeries = timestamps.length >= 1;
   document.querySelectorAll('.chart-section').forEach(el => {
     el.style.display = hasSeries ? '' : 'none';
+  });
+}
+
+// ── TRENDS PANEL ─────────────────────────────────────────────────────────────
+
+let _trendsPeriod = 7;
+let _trendsMetric = 'calories';
+
+function openTrends() {
+  document.getElementById('trends-overlay').classList.add('open');
+  document.getElementById('trends-panel').classList.add('open');
+  renderTrends(_trendsPeriod);
+}
+
+function closeTrends() {
+  document.getElementById('trends-overlay').classList.remove('open');
+  document.getElementById('trends-panel').classList.remove('open');
+}
+
+function selectTrendsPeriod(nDays, btn) {
+  _trendsPeriod = nDays;
+  document.querySelectorAll('.trends-period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrends(nDays);
+}
+
+function selectTrendsMetric(key, btn) {
+  _trendsMetric = key;
+  document.querySelectorAll('.trends-metric-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTrends(_trendsPeriod);
+}
+
+function toggleTrendsHint(id) {
+  const el = document.getElementById(id);
+  if (el) el.hidden = !el.hidden;
+}
+
+function renderTrends(nDays) {
+  const key    = _trendsMetric;
+  const target = DAILY_TARGETS[key];
+  const unit   = key === 'calories' ? ' kcal' : 'g';
+  const totals = getDailyTotals(nDays);
+
+  // Stats computation.
+  const loggedDays = totals.filter(d => d.logged);
+  const avgVal = loggedDays.length
+    ? Math.round(loggedDays.reduce((s, d) => s + d[key], 0) / loggedDays.length)
+    : 0;
+
+  // Cumulative bank: (value - target) for logged days, flat on unlogged.
+  let bank = 0;
+  for (const d of totals) {
+    if (d.logged) bank += d[key] - target;
+  }
+
+  // Update chart section titles.
+  const metricLabel = key === 'calories' ? 'Calories' : key.charAt(0).toUpperCase() + key.slice(1);
+  const barTitleEl     = document.getElementById('trends-bar-title');
+  const deficitTitleEl = document.getElementById('trends-deficit-title');
+  if (barTitleEl)     barTitleEl.textContent     = `Daily ${metricLabel}`;
+  if (deficitTitleEl) deficitTitleEl.textContent = `${metricLabel} Bank`;
+
+  // Render stats cards (no streak — already visible in the header).
+  const statsEl  = document.getElementById('trends-stats');
+  const bankClass = bank <= 0 ? 'positive' : 'negative';
+  const bankAbs   = Math.abs(Math.round(bank));
+  const bankShort = bankAbs > 9999 ? (bankAbs / 1000).toFixed(1) + 'k' : bankAbs.toLocaleString();
+  const bankStr   = loggedDays.length ? `${bank <= 0 ? '−' : '+'}${bankShort}${unit}` : '—';
+  const avgStr    = avgVal > 0 ? `${avgVal.toLocaleString()}<span class="trends-stat-unit">${unit}</span>` : '—';
+
+  statsEl.innerHTML = `
+    <div class="trends-stat-card">
+      <div class="trends-stat-label">Avg / day</div>
+      <div class="trends-stat-value">${avgStr}</div>
+    </div>
+    <div class="trends-stat-card">
+      <div class="trends-stat-label">Days logged</div>
+      <div class="trends-stat-value">${loggedDays.length}<span class="trends-stat-unit"> / ${nDays}</span></div>
+    </div>
+    <div class="trends-stat-card">
+      <div class="trends-stat-label">${bank <= 0 ? 'Deficit' : 'Surplus'}</div>
+      <div class="trends-stat-value ${bankClass}">${bankStr}</div>
+    </div>
+  `;
+
+  drawDailyBarChart(document.getElementById('trends-bar-chart'), totals, key, unit.trim());
+  drawCumulativeDeficit(document.getElementById('trends-deficit-chart'), totals, key, unit.trim());
+  drawConsistencyHeatmap(document.getElementById('trends-heatmap'), totals, key);
+}
+
+/**
+ * Draws a bar-per-day chart coloured by vs-target distance, with a dashed
+ * target line and a rolling 7-day average line overlay.
+ * @param {HTMLCanvasElement} canvas
+ * @param {Array<{date:Date,calories:number,logged:boolean}>} totals - oldest first
+ * @param {string} key  - nutrient field name ('calories'|'protein'|'carbs'|'fat'|'fibre')
+ * @param {string} unit - display unit suffix ('kcal'|'g')
+ */
+function drawDailyBarChart(canvas, totals, key, unit) {
+  if (!canvas) return;
+  const target = DAILY_TARGETS[key];
+  const nDays = totals.length;
+  const dpr   = window.devicePixelRatio || 1;
+  const W     = canvas.offsetWidth || canvas.parentElement?.clientWidth || 300;
+  const H     = nDays <= 7 ? 160 : 200;
+  canvas.width        = W * dpr;
+  canvas.height       = H * dpr;
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const MUTED  = '#94a3b8';
+  const BORDER = '#334155';
+  const PAD    = { top: 14, right: 12, bottom: 30, left: 48 };
+  const cW     = W - PAD.left - PAD.right;
+  const cH     = H - PAD.top  - PAD.bottom;
+
+  const maxCal    = Math.max(target * 1.1, ...totals.map(d => d[key]));
+  const yScale    = cH / (maxCal * 1.1 || 1);
+  const yOf       = v => PAD.top + cH - v * yScale;
+  const barW      = Math.max(2, (cW / nDays) * 0.7);
+  const slotW     = cW / nDays;
+
+  // Grid lines + y-axis labels.
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth   = 1;
+  for (let i = 0; i <= 3; i++) {
+    const v = Math.round((maxCal * 1.1 / 3) * i);
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillStyle = MUTED;
+    ctx.font      = '10px system-ui,sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(v > 999 ? (v / 1000).toFixed(1) + 'k' : v, PAD.left - 5, y + 3);
+  }
+
+  // Bars.
+  totals.forEach((d, i) => {
+    const x = PAD.left + i * slotW + (slotW - barW) / 2;
+    if (!d.logged) {
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(x, PAD.top, barW, cH);
+      return;
+    }
+    const ratio = d[key] / target;
+    const barH  = Math.max(2, d[key] * yScale);
+    const barY  = PAD.top + cH - barH;
+    ctx.fillStyle = ratio <= 1 ? '#22c55e' : ratio <= 1.2 ? '#f59e0b' : '#ef4444';
+    ctx.fillRect(x, barY, barW, barH);
+
+    // Value labels only for 7-day view.
+    if (nDays <= 7) {
+      ctx.fillStyle = MUTED;
+      ctx.font      = 'bold 9px system-ui,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d[key].toLocaleString(), x + barW / 2, barY - 3);
+    }
+  });
+
+  // Dashed target line.
+  ctx.save();
+  ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = MACRO_COLOURS[key] ? MACRO_COLOURS[key].line : MACRO_COLOURS.calories.line;
+  ctx.lineWidth   = 1.5;
+  ctx.globalAlpha = 0.7;
+  const ty = yOf(target);
+  ctx.beginPath(); ctx.moveTo(PAD.left, ty); ctx.lineTo(PAD.left + cW, ty); ctx.stroke();
+  ctx.restore();
+
+  // Rolling 7-day average line.
+  const avgPoints = [];
+  for (let i = 0; i < nDays; i++) {
+    const window = totals.slice(Math.max(0, i - 6), i + 1).filter(d => d.logged);
+    if (window.length >= 2) {
+      const avg = window.reduce((s, d) => s + d[key], 0) / window.length;
+      avgPoints.push({ x: PAD.left + i * slotW + slotW / 2, y: yOf(avg) });
+    } else {
+      avgPoints.push(null);
+    }
+  }
+  ctx.save();
+  ctx.strokeStyle = '#60a5fa';
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  ctx.lineCap     = 'round';
+  ctx.setLineDash([]);
+  let inPath = false;
+  for (const pt of avgPoints) {
+    if (!pt) { inPath = false; continue; }
+    if (!inPath) { ctx.beginPath(); ctx.moveTo(pt.x, pt.y); inPath = true; }
+    else ctx.lineTo(pt.x, pt.y);
+  }
+  if (inPath) ctx.stroke();
+  ctx.restore();
+
+  // X-axis labels.
+  ctx.fillStyle = MUTED;
+  ctx.textAlign = 'center';
+  ctx.font      = '9px system-ui,sans-serif';
+  totals.forEach((d, i) => {
+    if (nDays <= 7 || i % Math.ceil(nDays / 10) === 0 || i === nDays - 1) {
+      const x   = PAD.left + i * slotW + slotW / 2;
+      const lbl = nDays <= 7
+        ? d.date.toLocaleDateString([], { weekday: 'short' })
+        : d.date.toLocaleDateString([], { day: 'numeric', month: 'numeric' });
+      ctx.fillText(lbl, x, H - PAD.bottom + 12);
+    }
+  });
+}
+
+/**
+ * Draws a cumulative nutrient bank chart.
+ * Running sum of (value - target) for logged days; unlogged days hold flat.
+ * Below-zero fill = green (deficit), above-zero fill = red (surplus).
+ * @param {HTMLCanvasElement} canvas
+ * @param {Array<{date:Date,calories:number,logged:boolean}>} totals - oldest first
+ * @param {string} key  - nutrient field name
+ * @param {string} unit - display unit suffix
+ */
+function drawCumulativeDeficit(canvas, totals, key, unit) {
+  if (!canvas) return;
+  const target = DAILY_TARGETS[key];
+  const nDays = totals.length;
+  const dpr   = window.devicePixelRatio || 1;
+  const W     = canvas.offsetWidth || canvas.parentElement?.clientWidth || 300;
+  const H     = 150;
+  canvas.width        = W * dpr;
+  canvas.height       = H * dpr;
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const MUTED  = '#94a3b8';
+  const BORDER = '#334155';
+  const PAD    = { top: 14, right: 64, bottom: 28, left: 48 };
+  const cW     = W - PAD.left - PAD.right;
+  const cH     = H - PAD.top  - PAD.bottom;
+
+  // Build cumulative array (unlogged = carry forward).
+  const points = [];
+  let acc = 0;
+  for (const d of totals) {
+    if (d.logged) acc += d[key] - target;
+    points.push(acc);
+  }
+
+  if (points.every(p => p === 0)) {
+    ctx.fillStyle = MUTED;
+    ctx.font      = '11px system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Log some days to see your ${key} bank`, W / 2, H / 2);
+    return;
+  }
+
+  const maxAbs = Math.max(Math.abs(Math.min(...points)), Math.abs(Math.max(...points)), 1);
+  const yZero  = PAD.top + cH / 2;
+  const yScale = (cH / 2) / (maxAbs * 1.15);
+  const yOf    = v => yZero - v * yScale;
+  const xOf    = i => PAD.left + (i / (nDays - 1 || 1)) * cW;
+
+  // Grid.
+  ctx.strokeStyle = BORDER;
+  ctx.lineWidth   = 1;
+  [-1, 0, 1].forEach(frac => {
+    const v = maxAbs * 1.15 * frac;
+    const y = yOf(v);
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    if (frac !== 0) {
+      ctx.fillStyle = MUTED;
+      ctx.font      = '9px system-ui,sans-serif';
+      ctx.textAlign = 'right';
+      const label = Math.round(Math.abs(v));
+      ctx.fillText((frac < 0 ? '+' : '-') + (label > 999 ? (label/1000).toFixed(1)+'k' : label), PAD.left - 5, y + 3);
+    }
+  });
+
+  // Zero line.
+  ctx.save();
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = MUTED;
+  ctx.lineWidth   = 1;
+  ctx.beginPath(); ctx.moveTo(PAD.left, yZero); ctx.lineTo(PAD.left + cW, yZero); ctx.stroke();
+  ctx.restore();
+
+  // Build path.
+  const buildPath = () => {
+    ctx.moveTo(xOf(0), yOf(points[0]));
+    for (let i = 1; i < points.length; i++) ctx.lineTo(xOf(i), yOf(points[i]));
+  };
+
+  // Deficit fill (below zero = negative value = good).
+  ctx.save();
+  ctx.beginPath();
+  buildPath();
+  ctx.lineTo(xOf(points.length - 1), yZero);
+  ctx.lineTo(xOf(0), yZero);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(34,197,94,0.18)';
+  ctx.fill();
+  ctx.restore();
+
+  // Surplus fill (above zero = positive value = bad).
+  ctx.save();
+  ctx.beginPath();
+  buildPath();
+  ctx.lineTo(xOf(points.length - 1), yZero);
+  ctx.lineTo(xOf(0), yZero);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(239,68,68,0.15)';
+  // Clip to above zero.
+  ctx.rect(PAD.left, PAD.top, cW, yZero - PAD.top);
+  ctx.fill();
+  ctx.restore();
+
+  // Line.
+  ctx.beginPath();
+  ctx.strokeStyle = '#22c55e';
+  ctx.lineWidth   = 2.5;
+  ctx.lineJoin    = 'round';
+  buildPath();
+  ctx.stroke();
+
+  // Final value annotation.
+  const finalVal = points[points.length - 1];
+  const annotX   = xOf(points.length - 1) + 6;
+  const annotY   = yOf(finalVal);
+  const isDeficit = finalVal <= 0;
+  ctx.fillStyle   = isDeficit ? '#22c55e' : '#ef4444';
+  ctx.font        = 'bold 9px system-ui,sans-serif';
+  ctx.textAlign   = 'left';
+  const abs   = Math.abs(Math.round(finalVal));
+  const short = abs > 999 ? (abs / 1000).toFixed(1) + 'k' : abs;
+  ctx.fillText(
+    (isDeficit ? '\u2212' : '+') + short + (unit || 'kcal'),
+    annotX, Math.max(PAD.top + 8, Math.min(H - PAD.bottom - 4, annotY))
+  );
+
+  // X-axis labels.
+  ctx.fillStyle = MUTED;
+  ctx.textAlign = 'center';
+  ctx.font      = '9px system-ui,sans-serif';
+  [0, Math.floor(nDays / 2), nDays - 1].forEach(i => {
+    const d   = totals[i];
+    if (!d) return;
+    const lbl = d.date.toLocaleDateString([], { day: 'numeric', month: 'numeric' });
+    ctx.fillText(lbl, xOf(i), H - PAD.bottom + 12);
+  });
+}
+
+/**
+ * Draws a GitHub-style consistency heatmap (7-column weekly grid).
+ * Colour per cell: not logged = dark grey, on/under target = green,
+ * slightly over = amber, well over = red.
+ * @param {HTMLCanvasElement} canvas
+ * @param {Array<{date:Date,calories:number,logged:boolean}>} totals - oldest first
+ * @param {string} key - nutrient field name
+ */
+function drawConsistencyHeatmap(canvas, totals, key) {
+  if (!canvas) return;
+  const target = DAILY_TARGETS[key];
+  const nDays = totals.length;
+  const dpr   = window.devicePixelRatio || 1;
+  const W     = canvas.offsetWidth || canvas.parentElement?.clientWidth || 300;
+
+  // Align start to Monday (pad the beginning of the first week).
+  const firstDay    = totals[0].date.getDay(); // 0=Sun...6=Sat
+  const leadingPad  = (firstDay === 0 ? 6 : firstDay - 1); // days before first Monday
+  const totalCells  = leadingPad + nDays;
+  const nWeeks      = Math.ceil(totalCells / 7);
+  const CELL        = Math.min(22, Math.floor((W - 40) / nWeeks));
+  const H           = CELL * 7 + 40;
+
+  canvas.width        = W * dpr;
+  canvas.height       = H * dpr;
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD    = { top: 20, left: 24, right: 8, bottom: 20 };
+  const MUTED  = '#94a3b8';
+
+  // Day-of-week labels.
+  ctx.fillStyle = MUTED;
+  ctx.font      = '9px system-ui,sans-serif';
+  ctx.textAlign = 'right';
+  ['M','T','W','T','F','S','S'].forEach((lbl, row) => {
+    ctx.fillText(lbl, PAD.left - 4, PAD.top + row * CELL + CELL * 0.75);
+  });
+
+  // Draw cells.
+  for (let ci = 0; ci < totalCells; ci++) {
+    const col  = Math.floor(ci / 7);
+    const row  = ci % 7;
+    const x    = PAD.left + col * CELL + 1;
+    const y    = PAD.top  + row * CELL + 1;
+    const size = CELL - 3;
+
+    const dataIdx = ci - leadingPad;
+    if (dataIdx < 0 || dataIdx >= nDays) {
+      // Padding cell.
+      ctx.fillStyle = '#1a2332';
+      ctx.beginPath();
+      ctx.roundRect(x, y, size, size, 3);
+      ctx.fill();
+      continue;
+    }
+
+    const d = totals[dataIdx];
+    let colour;
+    if (!d.logged) {
+      colour = '#1e293b';
+    } else {
+      const ratio = d[key] / target;
+      if (ratio <= 1)        colour = '#16a34a';
+      else if (ratio <= 1.2) colour = '#d97706';
+      else                   colour = '#b91c1c';
+    }
+
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.roundRect(x, y, size, size, 3);
+    ctx.fill();
+  }
+
+  // Legend.
+  const legendItems = [
+    { colour: '#1e293b', label: 'Not logged' },
+    { colour: '#16a34a', label: '≤ target' },
+    { colour: '#d97706', label: '≤ 120%' },
+    { colour: '#b91c1c', label: '> 120%' },
+  ];
+  const legendY = PAD.top + 7 * CELL + 8;
+  let legendX   = PAD.left;
+  ctx.font      = '9px system-ui,sans-serif';
+  ctx.textAlign = 'left';
+  legendItems.forEach(item => {
+    ctx.fillStyle = item.colour;
+    ctx.beginPath();
+    ctx.roundRect(legendX, legendY, 9, 9, 2);
+    ctx.fill();
+    ctx.fillStyle = MUTED;
+    ctx.fillText(item.label, legendX + 12, legendY + 8);
+    legendX += ctx.measureText(item.label).width + 22;
   });
 }
