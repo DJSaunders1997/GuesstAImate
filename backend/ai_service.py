@@ -101,9 +101,7 @@ class AIService:
     def transcribe_audio(self, tmp_path: str) -> str:
         """Transcribe an audio file via Whisper-1 and return the transcript text."""
         with open(tmp_path, "rb") as f:
-            result = self._client.audio.transcriptions.create(
-                model="whisper-1", file=f
-            )
+            result = self._client.audio.transcriptions.create(model="whisper-1", file=f)
         return result.text.strip()
 
     def classify_intent(self, transcript: str, existing_entries: list[dict]) -> dict:
