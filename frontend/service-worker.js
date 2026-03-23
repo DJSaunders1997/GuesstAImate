@@ -1,4 +1,4 @@
-const CACHE = 'guesstaimate-v1';
+const CACHE = 'guesstaimate-v2';
 const PRECACHE = [
   './',
   './index.html',
@@ -7,6 +7,8 @@ const PRECACHE = [
   './render.js',
   './charts.js',
   './recording.js',
+  './auth.js',
+  './firebase.js',
   './main.js',
   './manifest.json',
   './icons/icon-192.png',
