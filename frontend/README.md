@@ -12,10 +12,12 @@ frontend/
 ├── styles.css          # Dark-theme CSS
 │
 ├── main.js             # Entry point (load last)
-├── storage.js          # localStorage — load first
+├── storage.js          # localStorage + Firestore sync — load first
 ├── render.js           # DOM rendering — depends on storage + charts
 ├── charts.js           # Canvas charts — depends on storage
 ├── recording.js        # Microphone + Whisper API
+├── auth.js             # Google sign-in + auth state
+├── firebase.js         # Firebase app initialisation
 │
 ├── manifest.json       # PWA manifest
 ├── service-worker.js   # PWA offline caching
@@ -45,16 +47,18 @@ All functions are globals on `window` — no ES modules, intentionally keeping i
 ## JS Module Breakdown
 
 ### `storage.js`
-Owns all `localStorage` access. Nothing else touches it directly.
+Owns all `localStorage` access and Firestore sync. Nothing else touches storage directly.
 
 | Function | Description |
 |---|---|
-| `getLogs()` | Returns full log array (newest first). Safe — returns `[]` on corrupt data. |
-| `saveLogs(logs)` | Overwrites the entire log array. |
+| `getLogs()` | Returns full log array for **all days** (newest first). Safe — returns `[]` on corrupt data. |
+| `saveLogs(logs)` | Overwrites the entire log array locally, then fire-and-forgets a push to Firestore if signed in. |
 | `addLog(...)` | Creates a new entry, resolves timestamp from GPT hint or current time, saves. |
 | `deleteLog(id)` | Removes one entry by ID. |
 | `getUniqueFoods()` | Returns deduplicated food names (most recent first) — used for autocomplete. |
 | `downloadCSV()` | Serialises all entries to CSV and triggers a browser download. |
+| `syncFromFirestore(uid)` | On sign-in: fetches cloud logs, merges with local (union by ID, cloud wins conflicts), saves merged result locally and pushes back to Firestore. Covers all days. |
+| `clearCloudState()` | No-op on sign-out — local data is intentionally preserved so history remains available offline and re-syncs on next sign-in. |
 
 ### `render.js`
 Builds all DOM. Depends on `storage.js` and `charts.js`.
@@ -93,6 +97,39 @@ Handles the microphone, live speech preview, and backend API call.
 | `processAudio(blob)` | POSTs audio to backend, parses JSON, calls `addLog()` for each returned item. |
 
 **Live transcription fix:** `liveRecognition.onresult = null` is set *before* `.stop()` is called — this prevents the browser's final-result flush event from overwriting the more accurate Whisper transcript.
+
+### `firebase.js`
+Initialises the Firebase app with project config. Must load before `auth.js` and `storage.js`. Contains no logic — just `firebase.initializeApp(config)`.
+
+To use your own Firebase project, replace the `firebaseConfig` values with those from Firebase Console → Project Settings → Your apps.
+
+### `auth.js`
+Google sign-in and auth state management using Firebase Auth.
+
+| Function | Description |
+|---|---|
+| `initAuth()` | Registers `onAuthStateChanged` listener. On sign-in, triggers `syncFromFirestore`. On sign-out, calls `clearCloudState()` (currently a no-op) then re-renders. |
+| `signInWithGoogle()` | Opens a Google popup sign-in flow. |
+| `signOutUser()` | Signs the user out of Firebase. Local data is **not** cleared. |
+| `getCurrentUser()` | Returns the currently signed-in Firebase user, or `null`. |
+| `renderAuthUI(user)` | Updates the top-left auth widget: avatar + sign-out button when signed in, ⛅ Sign in button with tooltip when signed out. |
+
+**Sign-in flow:**
+1. User clicks ⛅ Sign in → Google popup → Firebase issues a token
+2. `onAuthStateChanged` fires with the user object
+3. `syncFromFirestore(uid)` fetches all cloud logs, merges with local localStorage (union by entry ID, cloud wins conflicts), writes merged result back to both localStorage and Firestore
+4. All subsequent `saveLogs()` calls push to Firestore automatically
+
+**Sign-out flow:**
+1. User clicks Sign out → Firebase clears the session
+2. `onAuthStateChanged` fires with `null`
+3. Local data is left untouched — history remains browsable offline
+4. Next sign-in will re-sync from Firestore
+
+**Multi-device behaviour:**
+- Device A signs in first → its local history is uploaded to Firestore
+- Device B signs in later → its local history is merged with Firestore (union, no data lost)
+- From that point, all writes on either device sync to Firestore in real time
 
 ### `main.js`
 Entry point — wires everything together.

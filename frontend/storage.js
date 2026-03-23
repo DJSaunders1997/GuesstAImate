@@ -9,6 +9,54 @@
 
 const STORAGE_KEY = 'guesstaimate_logs';
 
+// ── FIRESTORE SYNC ───────────────────────────────────────────────────────────
+// All cloud functions are no-ops when the user isn't signed in.
+// saveLogs() is patched below to fire-and-forget to Firestore on every write.
+
+function _firestoreDoc(uid) {
+  return firebase.firestore().collection('users').doc(uid);
+}
+
+/**
+ * Uploads the current logs array to Firestore for the signed-in user.
+ * Fire-and-forget — callers do not await this.
+ */
+function _pushToFirestore(logs) {
+  const user = getCurrentUser ? getCurrentUser() : null;
+  if (!user) return;
+  _firestoreDoc(user.uid).set({ logs, lastUpdated: firebase.firestore.FieldValue.serverTimestamp() })
+    .catch(err => console.error('Firestore write failed:', err));
+}
+
+/**
+ * Fetches logs from Firestore, merges with any existing localStorage entries
+ * (de-duplicated by ID), saves locally, and re-renders.
+ * Called on sign-in.
+ * @param {string} uid - The signed-in user's UID.
+ */
+async function syncFromFirestore(uid) {
+  const doc = await _firestoreDoc(uid).get();
+  const cloudLogs = doc.exists ? (doc.data().logs || []) : [];
+  const localLogs = getLogs();
+
+  // Merge: use ID as key, cloud wins on conflict (most recent write wins).
+  const byId = {};
+  for (const l of localLogs) byId[l.id] = l;
+  for (const l of cloudLogs) byId[l.id] = l;   // cloud overwrites local
+  const merged = Object.values(byId).sort((a, b) => b.id - a.id);
+
+  saveLogs(merged);  // writes localStorage + pushes back to Firestore
+  renderLogs();
+}
+
+/**
+ * Called on sign-out. Local data is intentionally preserved so the user
+ * can still browse their history offline and it will re-sync on next sign-in.
+ */
+function clearCloudState() {
+  // no-op: keep localStorage intact on sign-out
+}
+
 /**
  * Returns all log entries from localStorage, newest first.
  * Silently returns an empty array if storage is corrupt.
@@ -25,6 +73,7 @@ function getLogs() {
  */
 function saveLogs(logs) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
+  _pushToFirestore(logs);
 }
 
 /**

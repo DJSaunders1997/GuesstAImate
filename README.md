@@ -28,7 +28,7 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 - 💬 **Live transcription** — words appear on screen as you speak
 - 🔥 **Streak tracking** — consecutive logging days shown in the header
 - 📱 **Installable** — add to home screen on Android or iPhone (PWA)
-- 💾 **No account needed** — everything lives in your browser
+- 💾 **No account needed** — everything lives in your browser's localStorage; sign in with Google to sync your full history across all devices. All historical data migrates automatically on first sign-in and is preserved locally even when signed out
 
 ---
 
@@ -40,7 +40,7 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 | Backend | FastAPI (Python) | Azure Container Apps |
 | Speech-to-Text | OpenAI Whisper-1 | OpenAI API |
 | NLP / Macros | OpenAI GPT-4o-mini | OpenAI API |
-| Storage | `localStorage` | Client-side |
+| Storage | `localStorage` + Firestore | Client-side / Firebase |
 
 For developer docs (file breakdown, PWA, local dev, deployment) → see [frontend/README.md](frontend/README.md).
 
@@ -48,19 +48,10 @@ For developer docs (file breakdown, PWA, local dev, deployment) → see [fronten
 
 ## Potential Future Improvements
 
-1. **User accounts + cloud sync** — log in to save your data across devices and not lose it if you clear your browser
-
-   Two viable approaches:
-   - **Firebase** (fastest) — Google's free-tier auth + Firestore database. No backend changes, talks directly from the browser. Handles thousands of users before hitting limits.
-   - **Azure Table Storage + FastAPI** (most control) — add login endpoints and `GET /logs` / `POST /logs` to the existing backend. Table Storage is pennies per GB and fits the log data structure well.
-
-   Either way, `localStorage` calls in `storage.js` would be replaced or mirrored with API/SDK calls, and the rest of the app stays the same.
-2. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
-3. **Meal templates / favourites** — save a common meal (e.g. "my usual lunch") and log it in one tap
-4. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
-5. **Water intake logging** — track hydration alongside food, with a daily target
-6. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
-7. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
-8. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
-9. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
-10. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)
+1. **Barcode scanner** — point camera at a product barcode to auto-fill nutritional info without speaking
+2. **Meal templates / favourites** — save a common meal (e.g. "my usual lunch") and log it in one tap
+3. **Weekly & monthly summaries** — charts and averages across a broader time range, not just day-by-day
+4. **Water intake logging** — track hydration alongside food, with a daily target
+5. **Photo logging** — take a photo of your meal and let GPT Vision estimate the calories automatically
+6. **Recipe builder** — enter ingredients to get a total macro breakdown for a homemade dish
+7. **Notifications / reminders** — push notifications to prompt logging at meal times (PWA supports this)
