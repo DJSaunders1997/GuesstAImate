@@ -22,6 +22,8 @@
 let BACKEND_URL;
 if (window.location.hostname === 'localhost' || window.location.hostname === '0.0.0.0') {
   BACKEND_URL = 'http://localhost:8000';
+} else if (window.location.hostname.startsWith('192.168.') || window.location.hostname.startsWith('10.') || window.location.hostname.startsWith('172.')) {
+  BACKEND_URL = `http://${window.location.hostname}:8000`;
 } else {
   BACKEND_URL = 'https://guesstaimate.jollyocean-6818c6e0.ukwest.azurecontainerapps.io';
 }
