@@ -345,6 +345,100 @@ header h1 .ai { color: var(--primary); }
 }
 #entries-toggle:hover { color: var(--text); }
 
+/* ── MEAL GROUPS ─────────────────────────────────────────────────────────── */
+
+.meal-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+}
+
+.meal-group-header {
+  background: var(--surface);
+  border: none;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  transition: filter 0.15s;
+}
+.meal-group-header:hover { filter: brightness(1.12); }
+
+.meal-group--open .meal-group-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.meal-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  min-width: 5rem;
+}
+
+.meal-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-left: auto;
+}
+
+.meal-macros {
+  display: flex;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.meal-kcal {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--primary);
+  min-width: 3.75rem;
+  text-align: right;
+}
+
+.meal-chevron {
+  font-size: 0.55rem;
+  color: var(--muted);
+  display: inline-block;
+  transition: transform 0.2s ease;
+  transform: rotate(0deg);
+}
+.meal-group--open .meal-chevron { transform: rotate(90deg); }
+
+.meal-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  background: var(--bg);
+}
+
+.meal-entries .log-entry { border-radius: 7px; }
+
+
+.edit-meal-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+.edit-meal-label select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 0.15rem 0.3rem;
+  cursor: pointer;
+}
+
 .log-entry {
   background: var(--surface);
   border: 1px solid var(--border);

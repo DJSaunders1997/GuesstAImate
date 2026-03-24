@@ -94,6 +94,21 @@ function updateDayNav() {
 // Whether the entry list is currently collapsed.
 let logsCollapsed = false;
 
+// Which meal groups are individually collapsed (by meal name string).
+const collapsedMeals = new Set();
+
+const MEAL_ORDER  = ['breakfast', 'lunch', 'dinner', 'snack'];
+const MEAL_LABELS = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner', snack: 'Snack' };
+
+/**
+ * Toggles a single meal group collapsed/expanded and re-renders.
+ */
+function toggleMeal(meal) {
+  if (collapsedMeals.has(meal)) collapsedMeals.delete(meal);
+  else collapsedMeals.add(meal);
+  renderLogs();
+}
+
 /**
  * Toggles the entry list collapsed/expanded state.
  */
@@ -167,6 +182,12 @@ function entryFormHTML(vals, saveCall) {
         <label>F  <input class="edit-fat"     type="number" min="0" step="0.1" value="${vals.fat}" />g</label>
         <label>Fi <input class="edit-fibre"   type="number" min="0" step="0.1" value="${vals.fibre}" />g</label>
         <label class="edit-time-label">🕐 <input class="edit-time" type="time" value="${vals.timeVal}" /></label>
+        <label class="edit-meal-label"><select class="edit-meal">
+          <option value="breakfast" ${vals.meal === 'breakfast' ? 'selected' : ''}>Breakfast</option>
+          <option value="lunch"     ${vals.meal === 'lunch'     ? 'selected' : ''}>Lunch</option>
+          <option value="dinner"    ${vals.meal === 'dinner'    ? 'selected' : ''}>Dinner</option>
+          <option value="snack"     ${vals.meal === 'snack'     ? 'selected' : ''}>Snack</option>
+        </select></label>
       </div>
     </div>
     <div class="log-right">
@@ -217,6 +238,7 @@ function readEntryForm(entry) {
     fat:      parseFloat(entry.querySelector('.edit-fat').value)     || 0,
     fibre:    parseFloat(entry.querySelector('.edit-fibre').value)   || 0,
     timeStr:  entry.querySelector('.edit-time').value,
+    meal:     entry.querySelector('.edit-meal').value,
   };
 }
 
@@ -230,10 +252,11 @@ function editLog(id) {
   const log = getLogs().find(l => l.id === id);
   if (!log) return;
   const timeVal = new Date(log.timestamp).toTimeString().slice(0, 5);
+  const meal = log.meal || _mealFromTime(new Date(log.timestamp));
   entry.innerHTML = entryFormHTML(
     { food: log.food, calories: log.calories,
       protein: log.protein || 0, carbs: log.carbs || 0,
-      fat: log.fat || 0, fibre: log.fibre || 0, timeVal },
+      fat: log.fat || 0, fibre: log.fibre || 0, timeVal, meal },
     `saveLog(${id})`
   );
   attachFoodAutofill(entry);
@@ -248,7 +271,7 @@ function editLog(id) {
 function saveLog(id) {
   const entry = document.querySelector(`.log-entry[data-id="${id}"]`);
   if (!entry) return;
-  const { food, calories, protein, carbs, fat, fibre, timeStr } = readEntryForm(entry);
+  const { food, calories, protein, carbs, fat, fibre, timeStr, meal } = readEntryForm(entry);
   if (!food || isNaN(calories) || calories < 0) return;
   const logs = getLogs().map(l => {
     if (l.id !== id) return l;
@@ -259,7 +282,7 @@ function saveLog(id) {
       d.setHours(h, m, 0, 0);
       timestamp = d.toISOString();
     }
-    return { ...l, food, calories, protein, carbs, fat, fibre, timestamp };
+    return { ...l, food, calories, protein, carbs, fat, fibre, meal, timestamp };
   });
   saveLogs(logs);
   renderLogs();
@@ -277,12 +300,13 @@ function showAddForm() {
     ? new Date()
     : (() => { const d = new Date(selectedDate); d.setHours(12, 0, 0, 0); return d; })();
   const timeVal = ref.toTimeString().slice(0, 5);
+  const meal = _mealFromTime(ref);
   document.getElementById('empty-state')?.remove();
   const div = document.createElement('div');
   div.className = 'log-entry';
   div.id        = 'new-entry-form';
   div.innerHTML = entryFormHTML(
-    { food: '', calories: '', protein: 0, carbs: 0, fat: 0, fibre: 0, timeVal },
+    { food: '', calories: '', protein: 0, carbs: 0, fat: 0, fibre: 0, timeVal, meal },
     'saveNewLog()'
   );
   logList.insertBefore(div, logList.firstChild);
@@ -297,9 +321,9 @@ function showAddForm() {
 function saveNewLog() {
   const entry = document.getElementById('new-entry-form');
   if (!entry) return;
-  const { food, calories, protein, carbs, fat, fibre, timeStr } = readEntryForm(entry);
+  const { food, calories, protein, carbs, fat, fibre, timeStr, meal } = readEntryForm(entry);
   if (!food || isNaN(calories) || calories < 0) { entry.querySelector('.edit-food').focus(); return; }
-  addLog(food, calories, protein, carbs, fat, fibre, '', timeStr || null);
+  addLog(food, calories, protein, carbs, fat, fibre, '', timeStr || null, meal);
 }
 
 // ── LOG LIST ──────────────────────────────────────────────────────────────────
@@ -350,34 +374,68 @@ function renderLogs() {
     return;
   }
 
-  logList.innerHTML = dayLogs.map(entry => {
-    const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
-    const p  = Math.round(entry.protein || 0);
-    const c  = Math.round(entry.carbs   || 0);
-    const f  = Math.round(entry.fat     || 0);
-    const fi = Math.round(entry.fibre   || 0);
-    const cached = getCachedImage(entry.food);
-    const thumbSrc   = cached ? `src="${cached}"` : '';
-    const thumbClass = cached ? 'log-thumb' : 'log-thumb log-thumb--loading';
-    return `
-      <div class="log-entry" data-id="${entry.id}">
-        <img class="${thumbClass}" ${thumbSrc} data-food="${escapeHtml(entry.food)}" alt="" aria-hidden="true">
-        <div class="log-left">
-          <div class="log-food">${escapeHtml(entry.food)}</div>
-          <div class="log-time">${time}</div>
-          <div class="log-macros">
-            <span><span class="macro-p">P</span> ${p}g</span>
-            <span><span class="macro-c">C</span> ${c}g</span>
-            <span><span class="macro-f">F</span> ${f}g</span>
-            <span><span class="macro-fi">Fi</span> ${fi}g</span>
+  // Group entries by meal, inferring from timestamp for entries without a meal field.
+  const groups = {};
+  for (const entry of dayLogs) {
+    const m = entry.meal || _mealFromTime(new Date(entry.timestamp));
+    if (!groups[m]) groups[m] = [];
+    groups[m].push(entry);
+  }
+
+  logList.innerHTML = MEAL_ORDER.filter(m => groups[m]).map(meal => {
+    const entries    = groups[meal];
+    const totalCals  = entries.reduce((s, e) => s + (e.calories || 0), 0);
+    const totalProt  = entries.reduce((s, e) => s + (e.protein  || 0), 0);
+    const totalCarbs = entries.reduce((s, e) => s + (e.carbs    || 0), 0);
+    const totalFat   = entries.reduce((s, e) => s + (e.fat      || 0), 0);
+    const isCollapsed = collapsedMeals.has(meal);
+    const entriesHtml = entries.map(entry => {
+      const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+      const p  = Math.round(entry.protein || 0);
+      const c  = Math.round(entry.carbs   || 0);
+      const f  = Math.round(entry.fat     || 0);
+      const fi = Math.round(entry.fibre   || 0);
+      const cached = getCachedImage(entry.food);
+      const thumbSrc   = cached ? `src="${cached}"` : '';
+      const thumbClass = cached ? 'log-thumb' : 'log-thumb log-thumb--loading';
+      return `
+        <div class="log-entry" data-id="${entry.id}">
+          <img class="${thumbClass}" ${thumbSrc} data-food="${escapeHtml(entry.food)}" alt="" aria-hidden="true">
+          <div class="log-left">
+            <div class="log-food">${escapeHtml(entry.food)}</div>
+            <div class="log-time">${time}</div>
+            <div class="log-macros">
+              <span><span class="macro-p">P</span> ${p}g</span>
+              <span><span class="macro-c">C</span> ${c}g</span>
+              <span><span class="macro-f">F</span> ${f}g</span>
+              <span><span class="macro-fi">Fi</span> ${fi}g</span>
+            </div>
           </div>
-        </div>
-        <div class="log-right">
-          <div class="log-calories">${entry.calories} <span>kcal</span></div>
-          <button class="edit-btn"   onclick="editLog(${entry.id})"   title="Edit entry">✏️</button>
-          <button class="delete-btn" onclick="deleteLog(${entry.id})" title="Remove entry">✕</button>
-        </div>
-      </div>`;
+          <div class="log-right">
+            <div class="log-calories">${entry.calories} <span>kcal</span></div>
+            <button class="edit-btn"   onclick="editLog(${entry.id})"   title="Edit entry">✏️</button>
+            <button class="delete-btn" onclick="deleteLog(${entry.id})" title="Remove entry">✕</button>
+          </div>
+        </div>`;
+    }).join('');
+    return `
+    <div class="meal-group${isCollapsed ? '' : ' meal-group--open'}">
+      <button class="meal-group-header" onclick="toggleMeal('${meal}')">
+        <span class="meal-label">${MEAL_LABELS[meal]}</span>
+        <span class="meal-summary">
+          <span class="meal-macros">
+            <span><span class="macro-p">P</span> ${Math.round(totalProt)}g</span>
+            <span><span class="macro-c">C</span> ${Math.round(totalCarbs)}g</span>
+            <span><span class="macro-f">F</span> ${Math.round(totalFat)}g</span>
+          </span>
+          <span class="meal-kcal">${totalCals} kcal</span>
+          <span class="meal-chevron">▶</span>
+        </span>
+      </button>
+      <div class="meal-entries"${isCollapsed ? ' style="display:none"' : ''}>
+        ${entriesHtml}
+      </div>
+    </div>`;
   }).join('');
 
   // Kick off image fetches for any entries not yet cached (fire-and-forget).

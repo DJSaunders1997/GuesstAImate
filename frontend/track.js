@@ -94,8 +94,8 @@ async function _postToBackend(formData) {
 }
 
 function _handleAdd({ items }, transcript) {
-  items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
-    addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
+  items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint, meal }) =>
+    addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint, meal)
   );
   items.forEach(({ food }) => fetchAndCacheFoodImage(food));
   if (items.length === 1) {

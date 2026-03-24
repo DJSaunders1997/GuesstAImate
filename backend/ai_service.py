@@ -49,7 +49,10 @@ _SYSTEM_PROMPT = (
     "For 'add': split into individual items, estimate calories/protein/carbs/fat/fibre for each. "
     "Extract time references (HH:MM 24h). Map meal names: "
     "breakfast=07:30, brunch=10:00, lunch=12:30, afternoon tea=15:30, dinner=18:30, supper=19:30. Null if no time. "
-    'Return: {"intent": "add", "items": [{"food": "desc", "calories": 300, "protein": 10, "carbs": 40, "fat": 8, "fibre": 3, "time": "09:00"}]}\n\n'
+    "Also include a 'meal' field for each item: one of 'breakfast', 'lunch', 'dinner', 'snack'. "
+    "Infer from explicit language ('I had a snack', 'for breakfast') or time context "
+    "(05:00-10:30=breakfast, 10:30-14:00=lunch, 14:00-17:30=snack, 17:30-22:00=dinner, else snack). "
+    'Return: {"intent": "add", "items": [{"food": "desc", "calories": 300, "protein": 10, "carbs": 40, "fat": 8, "fibre": 3, "time": "09:00", "meal": "breakfast"}]}\n\n'
     "For 'edit': match the user's description to an existing log entry by name. "
     "Return only the fields the user mentioned changing. "
     "Valid update fields: calories (number), protein (number), carbs (number), fat (number), fibre (number), food (string). "
@@ -130,6 +133,7 @@ class AIService:
                 "fat": float(item.get("fat") or 0),
                 "fibre": float(item.get("fibre") or 0),
                 "time_hint": item.get("time"),
+                "meal": item.get("meal"),
             }
             for item in items_raw
         ]

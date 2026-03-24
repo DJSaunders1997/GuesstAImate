@@ -58,6 +58,20 @@ function clearCloudState() {
 }
 
 /**
+ * Infers the meal category from a Date object based on the hour.
+ * @param {Date} date
+ * @returns {'breakfast'|'lunch'|'dinner'|'snack'}
+ */
+function _mealFromTime(date) {
+  const h = date.getHours() + date.getMinutes() / 60;
+  if (h >= 5   && h < 10.5) return 'breakfast';
+  if (h >= 10.5 && h < 14)  return 'lunch';
+  if (h >= 14   && h < 17.5) return 'snack';
+  if (h >= 17.5 && h < 22)  return 'dinner';
+  return 'snack';
+}
+
+/**
  * Returns all log entries from localStorage, newest first.
  * Silently returns an empty array if storage is corrupt.
  * @returns {Array<Object>} Array of log entry objects.
@@ -88,7 +102,7 @@ function saveLogs(logs) {
  * @param {string} transcript - Original speech transcript from Whisper.
  * @param {string} timeHint   - GPT-suggested time string (HH:MM format), may be null/invalid.
  */
-function addLog(food, calories, protein, carbs, fat, fibre, transcript, timeHint) {
+function addLog(food, calories, protein, carbs, fat, fibre, transcript, timeHint, meal) {
   const logs = getLogs();
   const base  = new Date(selectedDate);
   let timestamp;
@@ -114,6 +128,7 @@ function addLog(food, calories, protein, carbs, fat, fibre, transcript, timeHint
     protein: protein || 0, carbs: carbs || 0,
     fat: fat || 0, fibre: fibre || 0,
     transcript: transcript || '',
+    meal: meal || _mealFromTime(new Date(timestamp)),
   });
   saveLogs(logs);
   renderLogs();

@@ -32,6 +32,8 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 - 💾 **No account needed** — everything lives in your browser's localStorage; sign in with Google to sync your full history across all devices. All historical data migrates automatically on first sign-in and is preserved locally even when signed out
 - 🖼️ **Food thumbnails** — each log entry gets a DALL-E generated illustration in a consistent flat-lay icon style; images are cached locally so repeat foods (e.g. your daily flat white) never cost an extra API call
 - 📷 **Photo logging** — tap the camera button, pick a photo of your meal, and get an instant calorie and macro estimate via GPT-4o vision (results are editable; photo estimates are less precise than voice)
+- ✏️ **Text logging** — tap the pencil button to type a free-text meal description if voice or photo isn't convenient
+- 🍽️ **Meal grouping** — log entries are automatically grouped into Breakfast, Lunch, Dinner, and Snack sections; each group shows a total calorie and macro summary and can be expanded or collapsed independently
 
 ---
 

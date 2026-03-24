@@ -15,6 +15,7 @@ class FoodItem(BaseModel):
     fat: float = Field(..., description="Fat in grams", examples=[10.0])
     fibre: float = Field(..., description="Dietary fibre in grams", examples=[2.0])
     time_hint: Optional[str] = Field(None, description="Time of consumption (HH:MM 24h) if mentioned", examples=["08:30"])
+    meal: Optional[str] = Field(None, description="Meal category: breakfast, lunch, dinner, or snack", examples=["breakfast"])
 
 
 class NutritionUpdates(BaseModel):
