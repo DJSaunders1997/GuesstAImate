@@ -278,6 +278,15 @@ function _imageKey(food) {
   return food.toLowerCase().trim();
 }
 
+/** Writes a food image data URL to localStorage. Silently skips if storage is full. */
+function _saveImageLocally(food, dataUrl) {
+  try {
+    const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
+    cache[_imageKey(food)] = dataUrl;
+    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(cache));
+  } catch { /* storage full — silently skip */ }
+}
+
 function getCachedImage(food) {
   try {
     const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
@@ -286,29 +295,17 @@ function getCachedImage(food) {
 }
 
 function setCachedImage(food, dataUrl) {
-  const key = _imageKey(food);
-  // Write to localStorage (sync, always)
-  try {
-    const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
-    cache[key] = dataUrl;
-    localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(cache));
-  } catch { /* storage full — silently skip */ }
-  // Write to global Firestore cache (any authenticated user contributes)
+  _saveImageLocally(food, dataUrl);
+  // Also write to global Firestore cache so other users benefit immediately.
   const user = getCurrentUser ? getCurrentUser() : null;
   if (user) {
     firebase.firestore()
-      .collection('images').doc(key)
+      .collection('images').doc(_imageKey(food))
       .set({ dataUrl })
       .catch(err => console.error('Firestore image write failed:', err));
   }
 }
 
-/**
- * Looks up a food image in the global Firestore cache.
- * Returns the data URL string, or null if not found.
- * @param {string} food - Food description.
- * @returns {Promise<string|null>}
- */
 async function getGlobalFirestoreImage(food) {
   try {
     const doc = await firebase.firestore()
@@ -316,12 +313,7 @@ async function getGlobalFirestoreImage(food) {
       .get();
     if (!doc.exists) return null;
     const dataUrl = doc.data().dataUrl;
-    // Populate localStorage so subsequent renders are instant
-    try {
-      const cache = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || '{}');
-      cache[_imageKey(food)] = dataUrl;
-      localStorage.setItem(IMAGE_CACHE_KEY, JSON.stringify(cache));
-    } catch { /* storage full */ }
+    _saveImageLocally(food, dataUrl); // populate localStorage so subsequent renders are instant
     return dataUrl;
   } catch { return null; }
 }

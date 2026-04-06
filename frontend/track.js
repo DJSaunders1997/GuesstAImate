@@ -168,43 +168,37 @@ async function _handleDelete({ entry_id }) {
   setStatus(result.confirmed ? `Removed: ${result.food}` : 'Deletion cancelled.', result.confirmed ? 'success' : '');
 }
 
-async function _handleMultiAction(action, transcript, summaryParts) {
-  if (action.intent === 'add') {
-    _logItems(action.items, transcript);
-    summaryParts.push(
-      action.items.length === 1
-        ? `added ${action.items[0].food}`
-        : `added ${action.items.length} items`
-    );
-
-  } else if (action.intent === 'edit') {
-    const result = await _confirmEdit(action.entry_id, action.updates);
-    if (!result) { summaryParts.push(`couldn't find entry to edit`); return; }
-    summaryParts.push(result.confirmed ? `updated ${result.food}` : `skipped edit of ${result.food}`);
-
-  } else if (action.intent === 'delete') {
-    const result = await _confirmDelete(action.entry_id);
-    if (!result) { summaryParts.push(`couldn't find entry to delete`); return; }
-    summaryParts.push(result.confirmed ? `removed ${result.food}` : `kept ${result.food}`);
-  }
-}
-
 async function _handleMulti({ actions }, transcript) {
   const summaryParts = [];
   for (const action of actions) {
-    await _handleMultiAction(action, transcript, summaryParts);
+    if (action.intent === 'add') {
+      _logItems(action.items, transcript);
+      summaryParts.push(
+        action.items.length === 1
+          ? `added ${action.items[0].food}`
+          : `added ${action.items.length} items`
+      );
+    } else if (action.intent === 'edit') {
+      const result = await _confirmEdit(action.entry_id, action.updates);
+      if (!result) { summaryParts.push(`couldn't find entry to edit`); continue; }
+      summaryParts.push(result.confirmed ? `updated ${result.food}` : `skipped edit of ${result.food}`);
+    } else if (action.intent === 'delete') {
+      const result = await _confirmDelete(action.entry_id);
+      if (!result) { summaryParts.push(`couldn't find entry to delete`); continue; }
+      summaryParts.push(result.confirmed ? `removed ${result.food}` : `kept ${result.food}`);
+    }
   }
   setStatus(summaryParts.join(', '), 'success');
 }
 
-/**
- * POSTs the recorded audio blob to the backend /track endpoint along with
- * the current day's log entries (for edit/delete context). Handles the
- * response intent — 'add', 'edit', 'delete', or 'multi' — with confirmation
- * dialogs for destructive changes before applying them to storage.
- *
- * Called by recording.js once the MediaRecorder has stopped.
- */
+/** Routes a backend result to the correct intent handler. */
+async function _dispatchIntent(result, transcript) {
+  const handlers = { add: _handleAdd, edit: _handleEdit, delete: _handleDelete, multi: _handleMulti };
+  const handler  = handlers[result.intent];
+  if (!handler) throw new Error(`Unknown intent: ${result.intent}`);
+  await handler(result, transcript);
+}
+
 function triggerPhotoLog() {
   document.getElementById('photo-input').click();
 }
@@ -241,10 +235,7 @@ async function submitTextTrack(e) {
     }
     const result = await res.json();
     transcriptEl.textContent = `"${text}"`;
-    const handlers = { add: _handleAdd, edit: _handleEdit, delete: _handleDelete, multi: _handleMulti };
-    const handler  = handlers[result.intent];
-    if (!handler) throw new Error(`Unknown intent: ${result.intent}`);
-    await handler(result, text);
+    await _dispatchIntent(result, text);
   } catch (err) {
     transcriptEl.textContent = '';
     setStatus(`Error: ${err.message}`, 'error');
@@ -308,6 +299,14 @@ async function logPhoto(file) {
   }
 }
 
+/**
+ * POSTs the recorded audio blob to the backend /track endpoint along with
+ * the current day's log entries (for edit/delete context). Handles the
+ * response intent — 'add', 'edit', 'delete', or 'multi' — with confirmation
+ * dialogs for destructive changes before applying them to storage.
+ *
+ * Called by recording.js once the MediaRecorder has stopped.
+ */
 async function processAudio() {
   if (!speechDetected) {
     setStatus('🎙️ Record to add, edit or remove foods · 📷 Photo to log a meal', '');
@@ -333,14 +332,10 @@ async function processAudio() {
       clearTimeout(warmupHint);
     }
     _lastTrackSuccess = Date.now();
-    const { intent, transcript } = result;
+    const { transcript } = result;
 
     transcriptEl.textContent = `"${transcript}"`;
-
-    const handlers = { add: _handleAdd, edit: _handleEdit, delete: _handleDelete, multi: _handleMulti };
-    const handler = handlers[intent];
-    if (!handler) throw new Error(`Unknown intent: ${intent}`);
-    await handler(result, transcript);
+    await _dispatchIntent(result, transcript);
 
   } catch (err) {
     transcriptEl.textContent = '';

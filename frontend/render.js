@@ -210,16 +210,17 @@ function attachFoodAutofill(container) {
     // Find the most recent log that matches this food name exactly.
     const match = getLogs().find(l => l.food === chosen);
     if (!match) return;
-    const cal = container.querySelector('.edit-calories');
-    const pro = container.querySelector('.edit-protein');
-    const crb = container.querySelector('.edit-carbs');
-    const fat = container.querySelector('.edit-fat');
-    const fib = container.querySelector('.edit-fibre');
-    if (cal) cal.value = match.calories ?? '';
-    if (pro) pro.value = match.protein  ?? 0;
-    if (crb) crb.value = match.carbs    ?? 0;
-    if (fat) fat.value = match.fat      ?? 0;
-    if (fib) fib.value = match.fibre    ?? 0;
+    const fields = {
+      '.edit-calories': match.calories ?? '',
+      '.edit-protein':  match.protein  ?? 0,
+      '.edit-carbs':    match.carbs    ?? 0,
+      '.edit-fat':      match.fat      ?? 0,
+      '.edit-fibre':    match.fibre    ?? 0,
+    };
+    for (const [sel, val] of Object.entries(fields)) {
+      const el = container.querySelector(sel);
+      if (el) el.value = val;
+    }
   });
 }
 
