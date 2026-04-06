@@ -189,10 +189,10 @@ function entryFormHTML(vals, saveCall) {
           <option value="snack"     ${vals.meal === 'snack'     ? 'selected' : ''}>Snack</option>
         </select></label>
       </div>
-    </div>
-    <div class="log-right">
-      <button class="save-btn" onclick="${saveCall}">Save</button>
-      <button class="cancel-btn" onclick="renderLogs()">✕</button>
+      <div class="edit-actions">
+        <button class="save-btn" onclick="${saveCall}">Save</button>
+        <button class="cancel-btn" onclick="renderLogs()">✕</button>
+      </div>
     </div>`;
 }
 

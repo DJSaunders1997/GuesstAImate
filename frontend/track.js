@@ -14,6 +14,10 @@
 
 const FIELD_LABELS = { calories: 'kcal', protein: 'g protein', carbs: 'g carbs', fat: 'g fat', fibre: 'g fibre', food: '' };
 
+// Timestamp of the last successful /track response. Used to suppress the
+// "backend warming up" hint when the backend is already warm.
+let _lastTrackSuccess = 0;
+
 // Tracks foods currently being fetched to prevent duplicate concurrent requests.
 const _imageFetchInFlight = new Set();
 
@@ -62,16 +66,21 @@ function _applyImageToEntries(food, dataUrl) {
   });
 }
 
-function _buildFormData() {
-  const mimeType = mediaRecorder.mimeType || 'audio/webm';
-  const blob     = new Blob(audioChunks, { type: mimeType });
-  const ext      = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm';
-  const todayStr     = selectedDate.toDateString();
-  const todayEntries = getLogs()
+/** Returns today's log entries stripped to the fields the backend needs. */
+function _getTodayEntries() {
+  const todayStr = selectedDate.toDateString();
+  return getLogs()
     .filter(l => new Date(l.timestamp).toDateString() === todayStr)
     .map(({ id, food, calories, protein, carbs, fat, fibre }) =>
       ({ id, food, calories, protein, carbs, fat, fibre })
     );
+}
+
+function _buildFormData() {
+  const mimeType = mediaRecorder.mimeType || 'audio/webm';
+  const blob     = new Blob(audioChunks, { type: mimeType });
+  const ext      = mimeType.includes('ogg') ? 'ogg' : mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const todayEntries = _getTodayEntries();
   console.log('[/track] audio blob:', blob.size, 'bytes,', mimeType);
   console.log('[/track] sending entries:', todayEntries);
   const formData = new FormData();
@@ -93,11 +102,52 @@ async function _postToBackend(formData) {
   return result;
 }
 
-function _handleAdd({ items }, transcript) {
+/** Persists all items in an add response and kicks off image fetches. */
+function _logItems(items, transcript) {
   items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint, meal }) =>
     addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint, meal)
   );
   items.forEach(({ food }) => fetchAndCacheFoodImage(food));
+}
+
+/**
+ * Shows the edit-confirmation dialog and applies the update if confirmed.
+ * Returns { confirmed, food } if the entry was found, null otherwise.
+ */
+async function _confirmEdit(entry_id, updates) {
+  const entry = getLogs().find(l => l.id === entry_id);
+  if (!entry) return null;
+  const changedSummary = Object.entries(updates)
+    .map(([k, v]) => `${k}: ${entry[k] ?? '?'} → ${v}${FIELD_LABELS[k] ?? ''}`)
+    .join(', ');
+  const confirmed = await showConfirm(
+    `Update <strong>${escapeHtml(entry.food)}</strong>?<br><small style="color:var(--muted)">${escapeHtml(changedSummary)}</small>`
+  );
+  if (confirmed) {
+    // GPT returns null for fields it didn't mention — strip them so they don't
+    // overwrite existing values on the stored entry.
+    const safeUpdates = Object.fromEntries(Object.entries(updates).filter(([, v]) => v != null));
+    updateLog(entry_id, safeUpdates);
+  }
+  return { confirmed, food: entry.food };
+}
+
+/**
+ * Shows the delete-confirmation dialog and removes the entry if confirmed.
+ * Returns { confirmed, food } if the entry was found, null otherwise.
+ */
+async function _confirmDelete(entry_id) {
+  const entry = getLogs().find(l => l.id === entry_id);
+  if (!entry) return null;
+  const confirmed = await showConfirm(
+    `Remove <strong>${escapeHtml(entry.food)}</strong> (${entry.calories} kcal) from the log?`
+  );
+  if (confirmed) deleteLog(entry_id);
+  return { confirmed, food: entry.food };
+}
+
+function _handleAdd({ items }, transcript) {
+  _logItems(items, transcript);
   if (items.length === 1) {
     setStatus(`Logged: ${items[0].food} - ${items[0].calories} kcal`, 'success');
   } else {
@@ -107,42 +157,20 @@ function _handleAdd({ items }, transcript) {
 }
 
 async function _handleEdit({ entry_id, updates }) {
-  const entry = getLogs().find(l => l.id === entry_id);
-  if (!entry) { setStatus("Couldn't find that entry in today's log.", 'error'); return; }
-  const changedSummary = Object.entries(updates)
-    .map(([k, v]) => `${k}: ${entry[k] ?? '?'} → ${v}${FIELD_LABELS[k] ?? ''}`)
-    .join(', ');
-  const confirmed = await showConfirm(
-    `Update <strong>${escapeHtml(entry.food)}</strong>?<br><small style="color:var(--muted)">${escapeHtml(changedSummary)}</small>`
-  );
-  if (confirmed) {
-    updateLog(entry_id, updates);
-    setStatus(`Updated: ${entry.food}`, 'success');
-  } else {
-    setStatus('Edit cancelled.', '');
-  }
+  const result = await _confirmEdit(entry_id, updates);
+  if (!result) { setStatus("Couldn't find that entry in today's log.", 'error'); return; }
+  setStatus(result.confirmed ? `Updated: ${result.food}` : 'Edit cancelled.', result.confirmed ? 'success' : '');
 }
 
 async function _handleDelete({ entry_id }) {
-  const entry = getLogs().find(l => l.id === entry_id);
-  if (!entry) { setStatus("Couldn't find that entry in today's log.", 'error'); return; }
-  const confirmed = await showConfirm(
-    `Remove <strong>${escapeHtml(entry.food)}</strong> (${entry.calories} kcal) from the log?`
-  );
-  if (confirmed) {
-    deleteLog(entry_id);
-    setStatus(`Removed: ${entry.food}`, 'success');
-  } else {
-    setStatus('Deletion cancelled.', '');
-  }
+  const result = await _confirmDelete(entry_id);
+  if (!result) { setStatus("Couldn't find that entry in today's log.", 'error'); return; }
+  setStatus(result.confirmed ? `Removed: ${result.food}` : 'Deletion cancelled.', result.confirmed ? 'success' : '');
 }
 
 async function _handleMultiAction(action, transcript, summaryParts) {
   if (action.intent === 'add') {
-    action.items.forEach(({ food, calories, protein, carbs, fat, fibre, time_hint }) =>
-      addLog(food, calories, protein, carbs, fat, fibre, transcript, time_hint)
-    );
-    action.items.forEach(({ food }) => fetchAndCacheFoodImage(food));
+    _logItems(action.items, transcript);
     summaryParts.push(
       action.items.length === 1
         ? `added ${action.items[0].food}`
@@ -150,33 +178,14 @@ async function _handleMultiAction(action, transcript, summaryParts) {
     );
 
   } else if (action.intent === 'edit') {
-    const entry = getLogs().find(l => l.id === action.entry_id);
-    if (!entry) { summaryParts.push(`couldn't find entry to edit`); return; }
-    const changedSummary = Object.entries(action.updates)
-      .map(([k, v]) => `${k}: ${entry[k] ?? '?'} → ${v}${FIELD_LABELS[k] ?? ''}`)
-      .join(', ');
-    const confirmed = await showConfirm(
-      `Update <strong>${escapeHtml(entry.food)}</strong>?<br><small style="color:var(--muted)">${escapeHtml(changedSummary)}</small>`
-    );
-    if (confirmed) {
-      updateLog(action.entry_id, action.updates);
-      summaryParts.push(`updated ${entry.food}`);
-    } else {
-      summaryParts.push(`skipped edit of ${entry.food}`);
-    }
+    const result = await _confirmEdit(action.entry_id, action.updates);
+    if (!result) { summaryParts.push(`couldn't find entry to edit`); return; }
+    summaryParts.push(result.confirmed ? `updated ${result.food}` : `skipped edit of ${result.food}`);
 
   } else if (action.intent === 'delete') {
-    const entry = getLogs().find(l => l.id === action.entry_id);
-    if (!entry) { summaryParts.push(`couldn't find entry to delete`); return; }
-    const confirmed = await showConfirm(
-      `Remove <strong>${escapeHtml(entry.food)}</strong> (${entry.calories} kcal) from the log?`
-    );
-    if (confirmed) {
-      deleteLog(action.entry_id);
-      summaryParts.push(`removed ${entry.food}`);
-    } else {
-      summaryParts.push(`kept ${entry.food}`);
-    }
+    const result = await _confirmDelete(action.entry_id);
+    if (!result) { summaryParts.push(`couldn't find entry to delete`); return; }
+    summaryParts.push(result.confirmed ? `removed ${result.food}` : `kept ${result.food}`);
   }
 }
 
@@ -217,12 +226,7 @@ async function submitTextTrack(e) {
   setStatus('Parsing…', '');
   transcriptEl.textContent = '';
 
-  const todayStr     = selectedDate.toDateString();
-  const todayEntries = getLogs()
-    .filter(l => new Date(l.timestamp).toDateString() === todayStr)
-    .map(({ id, food, calories, protein, carbs, fat, fibre }) =>
-      ({ id, food, calories, protein, carbs, fat, fibre })
-    );
+  const todayEntries = _getTodayEntries();
 
   try {
     const res = await fetch(`${BACKEND_URL}/track-text`, {
@@ -315,18 +319,20 @@ async function processAudio() {
 
   try {
     const formData = _buildFormData();
-    // Show a warming-up hint if the backend takes more than 4 seconds to respond
-    // (Azure Container Apps can have a cold-start delay after scaling to zero).
-    const warmupHint = setTimeout(
-      () => setStatus('Backend warming up, please wait…', ''),
-      4000
-    );
+    // Show a warming-up hint only when the backend might be cold (no successful
+    // /track call in the last 5 minutes). Azure Container Apps scale to zero
+    // when idle, so subsequent calls within a session don't need the hint.
+    const maybeCold = Date.now() - _lastTrackSuccess > 5 * 60_000;
+    const warmupHint = maybeCold
+      ? setTimeout(() => setStatus('Backend warming up, please wait…', ''), 4000)
+      : null;
     let result;
     try {
       result = await _postToBackend(formData);
     } finally {
       clearTimeout(warmupHint);
     }
+    _lastTrackSuccess = Date.now();
     const { intent, transcript } = result;
 
     transcriptEl.textContent = `"${transcript}"`;

@@ -227,6 +227,9 @@ header h1 .ai { color: var(--primary); }
   transition: border-color 0.15s;
   width: 100%;
   box-sizing: border-box;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
 }
 #text-track-input::placeholder { color: var(--muted); }
 #text-track-input:focus { border-color: var(--primary); }
@@ -565,6 +568,13 @@ html, body { touch-action: pan-y; }
   font-size: 0.78rem;
   padding: 0.2rem 0.3rem;
   text-align: right;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
 }
 
 .edit-time-label { margin-left: auto; }
