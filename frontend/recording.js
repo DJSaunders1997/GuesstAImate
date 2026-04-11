@@ -109,17 +109,28 @@ function _startAudioAnalysis(stream) {
 function _startLiveCaptions() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) return;
-  liveRecognition = new SpeechRecognition();
-  liveRecognition.continuous     = true;
-  liveRecognition.interimResults = true;
-  liveRecognition.lang           = 'en-GB';
-  liveRecognition.onresult = e => {
-    let text = '';
-    for (const result of e.results) text += result[0].transcript;
-    transcriptEl.textContent = text;
-  };
-  liveRecognition.onerror = () => {}; // silently ignore - Whisper handles the final version
-  liveRecognition.start();
+
+  function _createAndStart() {
+    liveRecognition = new SpeechRecognition();
+    liveRecognition.continuous     = true;
+    liveRecognition.interimResults = true;
+    liveRecognition.lang           = 'en-GB';
+    liveRecognition.onresult = e => {
+      let text = '';
+      for (const result of e.results) text += result[0].transcript;
+      transcriptEl.textContent = text;
+    };
+    liveRecognition.onerror = e => {
+      console.warn('[SpeechRecognition] error:', e.error);
+    };
+    // Browsers end continuous sessions unpredictably — restart if still recording.
+    liveRecognition.onend = () => {
+      if (isRecording) _createAndStart();
+    };
+    liveRecognition.start();
+  }
+
+  _createAndStart();
 }
 
 /**
@@ -171,8 +182,11 @@ function stopRecording() {
   document.getElementById('waveform').setAttribute('hidden', '');
   if (audioContext) { audioContext.close(); audioContext = null; }
   // Null the onresult handler before stopping to prevent the browser firing a
-  // final flush event that would overwrite the Whisper transcript.
-  if (liveRecognition) { liveRecognition.onresult = null; liveRecognition.stop(); liveRecognition = null; }
+  // Null both onresult and onend before stopping: prevents a final flush from
+  // overwriting the Whisper transcript, and prevents the onend restart loop
+  // from firing after recording has ended (isRecording is set to false below,
+  // but onend may fire before that assignment).
+  if (liveRecognition) { liveRecognition.onresult = null; liveRecognition.onend = null; liveRecognition.stop(); liveRecognition = null; }
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   isRecording     = false;
   btn.className   = 'processing';
