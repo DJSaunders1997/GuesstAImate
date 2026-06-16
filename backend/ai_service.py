@@ -5,10 +5,13 @@ construction and raw LLM calls; public methods form the external API used
 by main.py.
 """
 
+import base64
+import io
 import json
 import logging
 
 from openai import OpenAI
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -139,21 +142,28 @@ class AIService:
         ]
 
     def generate_food_image(self, food_name: str) -> str:
-        """Generate a DALL-E 2 image for the given food and return a base64 PNG data URL."""
+        """Generate a food thumbnail image and return a base64 PNG data URL."""
         prompt = (
             f"A flat-lay food illustration of {food_name}. "
             "Minimal flat design, soft pastel colours, clean dark background, "
             "simple bold shapes, no text, no shadows, icon style."
         )
         response = self._client.images.generate(
-            model="dall-e-2",
+            model="gpt-image-1-mini",
             prompt=prompt,
             n=1,
-            size="256x256",
-            response_format="b64_json",
+            size="1024x1024",
+            quality="low",
         )
-        b64 = response.data[0].b64_json
-        return f"data:image/png;base64,{b64}"
+        raw_b64 = response.data[0].b64_json
+        # Resize to 256px thumbnail and compress as JPEG to stay under
+        # Firestore's 1 MB document limit.
+        img = Image.open(io.BytesIO(base64.b64decode(raw_b64)))
+        img = img.resize((256, 256), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=80)
+        b64 = base64.b64encode(buf.getvalue()).decode()
+        return f"data:image/jpeg;base64,{b64}"
 
     def analyse_photo(self, image_b64: str) -> dict:
         """Send a food photo to GPT-4o-mini vision and return estimated items."""
