@@ -108,7 +108,12 @@ function _startAudioAnalysis(stream) {
 
 function _startLiveCaptions() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return;
+  if (!SpeechRecognition) {
+    transcriptEl.textContent = '(live captions unavailable in this browser)';
+    return;
+  }
+
+  let _sttFailed = false;
 
   function _createAndStart() {
     liveRecognition = new SpeechRecognition();
@@ -122,6 +127,10 @@ function _startLiveCaptions() {
     };
     liveRecognition.onerror = e => {
       console.warn('[SpeechRecognition] error:', e.error);
+      if (!_sttFailed) {
+        _sttFailed = true;
+        transcriptEl.textContent = `(live captions failed: ${e.error})`;
+      }
     };
     // Browsers end continuous sessions unpredictably — restart if still recording.
     liveRecognition.onend = () => {
