@@ -37,6 +37,40 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 
 ---
 
+## Architecture
+
+```mermaid
+graph LR
+    User(["👤 User"])
+
+    subgraph Browser["Browser · GitHub Pages"]
+        UI["Vanilla JS PWA\nService Worker · localStorage"]
+    end
+
+    subgraph Firebase["Firebase"]
+        Auth["Auth\nGoogle sign-in"]
+        FS["Firestore\nsync + image cache"]
+    end
+
+    subgraph Backend["Azure Container Apps"]
+        API["FastAPI\n/track · /track-text\n/log-photo · /image"]
+    end
+
+    subgraph OpenAI["OpenAI API"]
+        Whisper["Whisper-1\nSTT"]
+        GPT["GPT-4o-mini\nNLP + Vision"]
+        Img["gpt-image-1-mini\nThumbnails"]
+    end
+
+    User -->|"voice · photo · text"| UI
+    UI <-->|"sign-in"| Auth
+    UI <-->|"logs + images"| FS
+    UI <-->|"API calls"| API
+    API --> Whisper
+    API --> GPT
+    API --> Img
+```
+
 ## Tech Stack
 
 | Layer | Technology | Hosting |
@@ -45,7 +79,9 @@ GuesstAImate is a voice-powered calorie tracker. Instead of searching a food dat
 | Backend | FastAPI (Python) | Azure Container Apps |
 | Speech-to-Text | OpenAI Whisper-1 | OpenAI API |
 | NLP / Macros | OpenAI GPT-4o-mini | OpenAI API |
+| Food Thumbnails | gpt-image-1-mini | OpenAI API |
 | Storage | `localStorage` + Firestore | Client-side / Firebase |
+| Auth | Firebase Auth (Google) | Firebase |
 
 For developer docs (file breakdown, PWA, local dev, deployment) → see [frontend/README.md](frontend/README.md).
 
