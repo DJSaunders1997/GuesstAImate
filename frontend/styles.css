@@ -486,6 +486,10 @@ html, body { touch-action: pan-y; }
 .log-thumb:not(.log-thumb--loading) {
   opacity: 1;
 }
+.log-thumb--failed {
+  opacity: 0.4;
+  border: 1px dashed var(--danger);
+}
 
 .log-left { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 @keyframes slideIn {
