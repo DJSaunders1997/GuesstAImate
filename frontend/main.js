@@ -37,12 +37,23 @@ let selectedDate = new Date();
 // Warm-up ping — fires on page load and periodically while the tab is open
 // so the Azure Container App (which scales to zero when idle) stays awake.
 // Retries indefinitely on failure with a 1s delay between attempts.
+var backendReady = false;
+
 function _pingHealth() {
   console.log('[/health] GET', `${BACKEND_URL}/health`);
   fetch(`${BACKEND_URL}/health`)
-    .then(res => console.log('[/health] response status:', res.status))
+    .then(res => {
+      console.log('[/health] response status:', res.status);
+      if (!backendReady) {
+        backendReady = true;
+        setStatus('Tell us what you ate - voice, photo, or text', '');
+      }
+    })
     .catch(err => {
       console.warn('[/health] warm-up ping failed, retrying:', err);
+      if (!backendReady) {
+        setStatus('Connecting to backend… (Azure cold start, ~15s)', '');
+      }
       setTimeout(_pingHealth, 1000);
     });
 }

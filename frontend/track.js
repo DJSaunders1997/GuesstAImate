@@ -47,12 +47,23 @@ async function fetchAndCacheFoodImage(food) {
       body: JSON.stringify({ food }),
     });
     console.log('[/image] response status:', res.status);
-    if (!res.ok) { console.warn('[/image] non-OK response for food:', food); return; }
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      const reason = detail.detail || `HTTP ${res.status}`;
+      console.warn('[/image] non-OK response for food:', food, reason);
+      _markImageFailed(food, reason);
+      setStatus(`Image failed for "${food}": ${reason}`, 'error');
+      return;
+    }
     const { data_url } = await res.json();
     console.log('[/image] received data_url length:', data_url?.length, 'for food:', food);
     setCachedImage(food, data_url);
     _applyImageToEntries(food, data_url);
-  } catch (err) { console.warn('[/image] fetch failed for food:', food, err); }
+  } catch (err) {
+    console.warn('[/image] fetch failed for food:', food, err);
+    _markImageFailed(food, `Image failed: ${err.message}`);
+    setStatus(`Image failed for "${food}": ${err.message}`, 'error');
+  }
   finally { _imageFetchInFlight.delete(key); }
 }
 
@@ -62,6 +73,18 @@ function _applyImageToEntries(food, dataUrl) {
     if (img.dataset.food.toLowerCase().trim() === key) {
       img.src = dataUrl;
       img.classList.remove('log-thumb--loading');
+      img.classList.remove('log-thumb--failed');
+    }
+  });
+}
+
+function _markImageFailed(food, reason) {
+  const key = food.toLowerCase().trim();
+  document.querySelectorAll('.log-thumb[data-food]').forEach(img => {
+    if (img.dataset.food.toLowerCase().trim() === key) {
+      img.classList.remove('log-thumb--loading');
+      img.classList.add('log-thumb--failed');
+      img.title = reason;
     }
   });
 }
@@ -222,6 +245,10 @@ async function submitTextTrack(e) {
 
   const todayEntries = _getTodayEntries();
 
+  const maybeCold = !backendReady && Date.now() - _lastTrackSuccess > 5 * 60_000;
+  const warmupHint = maybeCold
+    ? setTimeout(() => setStatus('Backend waking up (Azure cold start)…', ''), 1500)
+    : null;
   try {
     const res = await fetch(`${BACKEND_URL}/track-text`, {
       method: 'POST',
@@ -229,14 +256,17 @@ async function submitTextTrack(e) {
       credentials: 'omit',
       body: JSON.stringify({ text, entries: JSON.stringify(todayEntries) }),
     });
+    clearTimeout(warmupHint);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Server error (${res.status})`);
     }
+    _lastTrackSuccess = Date.now();
     const result = await res.json();
     transcriptEl.textContent = `"${text}"`;
     await _dispatchIntent(result, text);
   } catch (err) {
+    clearTimeout(warmupHint);
     transcriptEl.textContent = '';
     setStatus(`Error: ${err.message}`, 'error');
   }
@@ -272,6 +302,10 @@ async function logPhoto(file) {
   photoBtn.classList.add('processing');
   setStatus('Analysing photo…', '');
   transcriptEl.textContent = '';
+  const maybeCold = !backendReady && Date.now() - _lastTrackSuccess > 5 * 60_000;
+  const warmupHint = maybeCold
+    ? setTimeout(() => setStatus('Backend waking up (Azure cold start)…', ''), 1500)
+    : null;
   try {
     const image_b64 = await _resizeImageToJpeg(file);
     console.log('[/log-photo] POST', `${BACKEND_URL}/log-photo`, '— b64 chars:', image_b64.length);
@@ -281,16 +315,19 @@ async function logPhoto(file) {
       credentials: 'omit',
       body: JSON.stringify({ image_b64 }),
     });
+    clearTimeout(warmupHint);
     console.log('[/log-photo] response status:', res.status);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `Server error (${res.status})`);
     }
+    _lastTrackSuccess = Date.now();
     const result = await res.json();
     console.log('[/log-photo] response body:', result);
     transcriptEl.textContent = '📷 Estimated from photo';
     _handleAdd(result, result.transcript);
   } catch (err) {
+    clearTimeout(warmupHint);
     transcriptEl.textContent = '';
     setStatus(`Error: ${err.message}`, 'error');
   } finally {
@@ -318,12 +355,10 @@ async function processAudio() {
 
   try {
     const formData = _buildFormData();
-    // Show a warming-up hint only when the backend might be cold (no successful
-    // /track call in the last 5 minutes). Azure Container Apps scale to zero
-    // when idle, so subsequent calls within a session don't need the hint.
-    const maybeCold = Date.now() - _lastTrackSuccess > 5 * 60_000;
+    // Show a warming-up hint when the backend might be cold.
+    const maybeCold = !backendReady && Date.now() - _lastTrackSuccess > 5 * 60_000;
     const warmupHint = maybeCold
-      ? setTimeout(() => setStatus('Backend warming up, please wait…', ''), 4000)
+      ? setTimeout(() => setStatus('Backend waking up (Azure cold start)…', ''), 1500)
       : null;
     let result;
     try {
