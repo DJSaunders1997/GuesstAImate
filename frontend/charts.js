@@ -66,25 +66,8 @@ function saveTargets() {
 }
 
 /**
- * Opens the settings dialog.
- */
-function openSettings() {
-  document.getElementById('settings-overlay').classList.add('open');
-  document.getElementById('settings-dialog').classList.add('open');
-}
-
-/**
- * Closes the settings dialog without performing any actions.
- */
-function closeSettings() {
-  document.getElementById('settings-overlay').classList.remove('open');
-  document.getElementById('settings-dialog').classList.remove('open');
-  closeClearConfirm();
-}
-
-/**
  * Opens the clear data confirmation dialog.
- * This is shown when the user clicks the "Delete All Local Data" button.
+ * This is shown when the user clicks the delete button in targets.
  */
 function confirmClearData() {
   document.getElementById('clear-confirm-overlay').classList.add('open');
@@ -126,11 +109,11 @@ async function performClearData() {
 
   // Close dialogs
   closeClearConfirm();
-  closeSettings();
+  closeTargets();
 
   // Show success message and reload
-  setStatus('All local data deleted. Reloading…', '');
-  setTimeout(() => window.location.reload(), 500);
+  setStatus('Data cleared. Reloading…', '');
+  setTimeout(() => location.reload(), 500);
 }
 
 /**

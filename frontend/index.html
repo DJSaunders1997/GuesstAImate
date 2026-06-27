@@ -22,7 +22,6 @@
   <h1>Guesst<span class="ai">AI</span>mate</h1>
   <button id="targets-btn" onclick="openTargets()" title="Edit daily targets">&#9881;</button>
   <button id="trends-btn" onclick="openTrends()" title="View trends">&#128200;</button>
-  <button id="settings-btn" onclick="openSettings()" title="Settings">⚙️</button>
   <div id="daily-total"><span id="daily-label">Today</span>: <strong id="total-cal">0</strong> kcal</div>
   <div id="macro-totals">
     <span><span class="macro-p">Protein</span> <strong id="total-protein">0</strong>g</span>
@@ -171,13 +170,6 @@
   </div>
 </div>
 
-<div id="settings-overlay" onclick="closeSettings()"></div>
-<div id="settings-dialog">
-  <h3>Settings</h3>
-  <p style="font-size: 0.85rem; color: var(--muted); margin: 0.5rem 0;">Delete all logs, targets, and cache.</p>
-  <button class="clear-btn" onclick="confirmClearData()">🗑️ Clear All Data</button>
-  <button class="cancel-btn" onclick="closeSettings()">Close</button>
-</div>
 <div id="clear-confirm-overlay" onclick="closeClearConfirm()"></div>
 <div id="clear-confirm-dialog">
   <h3 style="color: var(--danger);">Confirm Delete?</h3>
@@ -188,7 +180,6 @@
   </div>
 </div>
 
-<!-- Targets dialog -->
 <div id="targets-overlay" onclick="closeTargets()"></div>
 <div id="targets-dialog">
   <h3>Daily Targets</h3>
@@ -210,6 +201,7 @@
   <div class="targets-actions">
     <button onclick="saveTargets()">Save</button>
     <button class="cancel-btn" onclick="closeTargets()">Cancel</button>
+    <button class="clear-btn" onclick="confirmClearData()" title="Delete all local data">🗑️</button>
   </div>
 </div>
 

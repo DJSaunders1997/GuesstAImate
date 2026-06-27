@@ -812,22 +812,22 @@ html, body { touch-action: pan-y; }
 
 .macro-cal { color: #22c55e; font-weight: 600; }
 
-/* ── SETTINGS & CLEAR DIALOGS ──────────────────── */
-#settings-overlay, #clear-confirm-overlay {
+/* ── CLEAR DATA CONFIRMATION ────────────────────── */
+#clear-confirm-overlay {
   display: none;
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  z-index: 102;
 }
-#settings-overlay.open, #clear-confirm-overlay.open { display: block; }
+#clear-confirm-overlay.open { display: block; }
 
-#settings-dialog, #clear-confirm-dialog {
+#clear-confirm-dialog {
   display: none;
   position: fixed;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 101;
+  z-index: 103;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -836,15 +836,37 @@ html, body { touch-action: pan-y; }
   gap: 0.75rem;
   flex-direction: column;
 }
-#settings-dialog.open, #clear-confirm-dialog.open { display: flex; }
+#clear-confirm-dialog.open { display: flex; }
 
-#settings-dialog h3, #clear-confirm-dialog h3 {
+#clear-confirm-dialog h3 {
   font-size: 1rem;
   font-weight: 700;
   margin: 0;
 }
 
-.clear-btn, .danger-btn {
+.targets-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+.targets-actions button {
+  flex: 1;
+  background: var(--primary);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+}
+.targets-actions button:hover { background: var(--primary-dark); }
+.targets-actions .cancel-btn { background: var(--muted); }
+.targets-actions .cancel-btn:hover { opacity: 0.8; }
+.targets-actions .clear-btn { background: var(--danger); flex: 0; padding: 0.35rem 0.5rem; }
+.targets-actions .clear-btn:hover { opacity: 0.9; }
+
+.danger-btn {
   background: var(--danger);
   border: none;
   border-radius: 6px;
@@ -853,7 +875,7 @@ html, body { touch-action: pan-y; }
   padding: 0.5rem 0.75rem;
   cursor: pointer;
 }
-.clear-btn:hover, .danger-btn:hover { opacity: 0.9; }
+.danger-btn:hover { opacity: 0.9; }
 
 /* ── FOOTER ─────────────────────────────────────── */
 footer {
