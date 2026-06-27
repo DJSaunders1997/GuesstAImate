@@ -66,6 +66,74 @@ function saveTargets() {
 }
 
 /**
+ * Opens the settings dialog.
+ */
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('open');
+  document.getElementById('settings-dialog').classList.add('open');
+}
+
+/**
+ * Closes the settings dialog without performing any actions.
+ */
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('open');
+  document.getElementById('settings-dialog').classList.remove('open');
+  closeClearConfirm();
+}
+
+/**
+ * Opens the clear data confirmation dialog.
+ * This is shown when the user clicks the "Delete All Local Data" button.
+ */
+function confirmClearData() {
+  document.getElementById('clear-confirm-overlay').classList.add('open');
+  document.getElementById('clear-confirm-dialog').classList.add('open');
+}
+
+/**
+ * Closes the clear data confirmation dialog without performing any actions.
+ */
+function closeClearConfirm() {
+  document.getElementById('clear-confirm-overlay').classList.remove('open');
+  document.getElementById('clear-confirm-dialog').classList.remove('open');
+}
+
+/**
+ * Performs the actual clearing of all local data:
+ * - localStorage: food logs, targets, image cache
+ * - Service worker cache
+ * - IndexedDB (if used)
+ * Then reloads the page to show a clean state.
+ */
+async function performClearData() {
+  // Clear all localStorage keys
+  localStorage.removeItem('guesstaimate_logs');
+  localStorage.removeItem('guesstaimate_targets');
+  localStorage.removeItem('guesstaimate_image_cache');
+
+  // Clear service worker caches
+  if ('caches' in window) {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map(name => caches.delete(name)));
+  }
+
+  // Clear IndexedDB databases
+  if ('indexedDB' in window) {
+    const dbs = await indexedDB.databases();
+    dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+  }
+
+  // Close dialogs
+  closeClearConfirm();
+  closeSettings();
+
+  // Show success message and reload
+  setStatus('All local data deleted. Reloading…', '');
+  setTimeout(() => window.location.reload(), 500);
+}
+
+/**
  * Draws one or more cumulative step-chart series onto a canvas element.
  *
  * Each series value is accumulated left-to-right, stepping up vertically at

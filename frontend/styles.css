@@ -812,6 +812,49 @@ html, body { touch-action: pan-y; }
 
 .macro-cal { color: #22c55e; font-weight: 600; }
 
+/* ── SETTINGS & CLEAR DIALOGS ──────────────────── */
+#settings-overlay, #clear-confirm-overlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+}
+#settings-overlay.open, #clear-confirm-overlay.open { display: block; }
+
+#settings-dialog, #clear-confirm-dialog {
+  display: none;
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 101;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.5rem;
+  min-width: 260px;
+  gap: 0.75rem;
+  flex-direction: column;
+}
+#settings-dialog.open, #clear-confirm-dialog.open { display: flex; }
+
+#settings-dialog h3, #clear-confirm-dialog h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.clear-btn, .danger-btn {
+  background: var(--danger);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+.clear-btn:hover, .danger-btn:hover { opacity: 0.9; }
+
 /* ── FOOTER ─────────────────────────────────────── */
 footer {
   text-align: center;
